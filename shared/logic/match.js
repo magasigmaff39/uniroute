@@ -18,6 +18,13 @@ function rawFit(profile, uni) {
   const regions = profile.targetRegions || [];
 
   let score = 70;
+  const track = profile.targetTrack || (profile.grade === 'grade_7' || profile.grade === 'grade_8' ? 'school' : profile.grade === 'college' ? 'college' : 'university');
+  if (uni.category === track) score += 20;
+  else if (track !== 'all' && uni.category && uni.category !== track) score -= 30;
+
+  if (uni.category === 'school' && (profile.grade === 'grade_7' || profile.grade === 'grade_8')) score += 15;
+  if (uni.category === 'college' && profile.grade === 'grade_9') score += 15;
+
   if ((uni.supportedMajors || []).some((m) => majors.includes(m))) score += 15;
   if (regions.includes(uni.region)) score += 10;
 
@@ -92,10 +99,14 @@ export function fitReasons(profile, uni) {
  */
 export function pickTargetUniversities(profile, universities, { limit = 5 } = {}) {
   if (!profile) return [];
+  const track = profile.targetTrack || (profile.grade === 'grade_7' || profile.grade === 'grade_8' ? 'school' : profile.grade === 'college' ? 'college' : 'university');
+  const inTrack = track && track !== 'all' ? universities.filter((u) => u.category === track) : universities;
+  const trackPool = inTrack.length >= limit ? inTrack : universities;
+
   const regions = profile.targetRegions || [];
   // Regions the applicant chose come first; other regions only fill the list when those run out.
-  const inRegion = regions.length ? universities.filter((u) => regions.includes(u.region)) : universities;
-  const pool = inRegion.length >= limit ? inRegion : universities;
+  const inRegion = regions.length ? trackPool.filter((u) => regions.includes(u.region)) : trackPool;
+  const pool = inRegion.length >= limit ? inRegion : trackPool;
   const ranked = pool
     .map((u) => {
       const chance = estimateChance(profile, u);

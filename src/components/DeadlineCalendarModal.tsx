@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
-import { X, Calendar, Download, Filter, ExternalLink, Building } from 'lucide-react';
+import { X, Calendar, Download, Filter, ExternalLink } from 'lucide-react';
+import { UniversityCrest } from './ui/UniversityCrest';
+import { getUniversityById } from '../data/universities';
 import { UNIVERSITY_DATABASE } from '../data/universities';
 import { parseRuDeadline, toIcsDate, daysUntil } from '../utils/dates';
 
@@ -23,6 +25,7 @@ export const DeadlineCalendarModal: React.FC<DeadlineCalendarModalProps> = ({
     if (uni.earlyDeadline) {
       list.push({
         id: `${uni.id}-early`,
+        uniId: uni.id,
         uniName: uni.name,
         shortName: uni.shortName,
         type: 'Ранний прием (Early Round)',
@@ -35,6 +38,7 @@ export const DeadlineCalendarModal: React.FC<DeadlineCalendarModalProps> = ({
     }
     list.push({
       id: `${uni.id}-regular`,
+      uniId: uni.id,
       uniName: uni.name,
       shortName: uni.shortName,
       type: 'Основной раунд / Грантовый конкурс',
@@ -53,7 +57,7 @@ export const DeadlineCalendarModal: React.FC<DeadlineCalendarModalProps> = ({
     .sort((a, b) => (a.date?.getTime() ?? Infinity) - (b.date?.getTime() ?? Infinity));
 
   const generateIcsFile = () => {
-    let icsContent = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//AdmitRoute//Admission Deadlines//RU\r\nCALSCALE:GREGORIAN\r\n`;
+    let icsContent = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//UniRoute//Admission Deadlines//RU\r\nCALSCALE:GREGORIAN\r\n`;
 
     filteredEvents.forEach(ev => {
       if (!ev.date) return; // skip deadlines without a parseable date (e.g. "rolling")
@@ -75,37 +79,45 @@ export const DeadlineCalendarModal: React.FC<DeadlineCalendarModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white w-full max-w-3xl rounded-2xl border border-slate-200 shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-        
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/40 backdrop-blur-[2px] animate-fadeIn"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="deadline-calendar-title"
+    >
+      <div className="w-full max-w-3xl max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] flex flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-[var(--shadow-overlay)] animate-popIn">
+
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-800 flex items-center justify-center">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
+        <div className="px-4 sm:px-6 py-4 border-b border-[var(--line)] flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="ar-icon-tile">
+              <Calendar className="w-5 h-5" />
+            </span>
+            <div className="min-w-0">
+              <h3 id="deadline-calendar-title" className="text-lg font-semibold text-slate-900 dark:text-white leading-tight">
                 {t('Календарный регламент контрольных сроков')}
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                 {t('Сроки ранней и регулярной подачи в университеты')}
               </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition"
+            className="ar-btn ar-btn-icon shrink-0"
+            aria-label={t('Закрыть')}
+            title={t('Закрыть')}
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Filters */}
-        <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
-          <div className="flex overflow-x-auto gap-1 text-xs whitespace-nowrap hide-scrollbar pb-1 sm:pb-0 items-center max-w-full">
-            <Filter className="w-3.5 h-3.5 text-slate-400 mr-1 shrink-0" />
+        <div className="px-4 sm:px-6 py-3 border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5" role="group">
+            <Filter className="w-4 h-4 text-slate-400 dark:text-zinc-500 mr-0.5 shrink-0" aria-hidden />
             {[
               { id: 'all', label: 'Все юрисдикции' },
               { id: 'kazakhstan', label: 'Казахстан' },
@@ -115,9 +127,10 @@ export const DeadlineCalendarModal: React.FC<DeadlineCalendarModalProps> = ({
             ].map(r => (
               <button
                 key={r.id}
+                type="button"
                 onClick={() => setSelectedRegion(r.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition shrink-0
-                  ${selectedRegion === r.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                aria-pressed={selectedRegion === r.id}
+                className="ar-chip shrink-0 whitespace-nowrap"
               >
                 {t(r.label)}
               </button>
@@ -125,44 +138,46 @@ export const DeadlineCalendarModal: React.FC<DeadlineCalendarModalProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={generateIcsFile}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition border border-slate-200"
+            className="ar-btn ar-btn-secondary ar-btn-sm min-h-9"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-4 h-4" />
             <span>{t('Экспорт в iCal (.ics)')}</span>
           </button>
         </div>
 
         {/* List of Deadlines */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-2.5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-2.5">
           {filteredEvents.map(ev => (
             <div
               key={ev.id}
-              className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="p-3 sm:p-4 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] transition-colors hover:border-[var(--line-strong)] hover:bg-slate-50 dark:hover:bg-zinc-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 shrink-0">
-                  <Building className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-xs sm:text-sm text-slate-900">{ev.uniName}</h4>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200">
+              <div className="flex items-center gap-3 min-w-0">
+                {(() => {
+                  const uni = getUniversityById(ev.uniId);
+                  return uni ? <UniversityCrest uni={uni} size={36} rounded="rounded-lg" /> : null;
+                })()}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white break-words">{ev.uniName}</h4>
+                    <span className={`ar-badge ${ev.isEarly ? 'ar-badge-blue' : ''}`}>
                       {tx(ev.type)}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500">{ev.country}</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">{ev.country}</p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-3 text-xs">
-                <div className="text-right">
-                  <span className="font-bold text-slate-900 block text-xs">{tx(ev.deadline)}</span>
+              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pl-12 sm:pl-0">
+                <div className="sm:text-right">
+                  <span className="block text-sm font-semibold text-slate-900 dark:text-white">{tx(ev.deadline)}</span>
                   {(() => {
                     const left = daysUntil(ev.date);
-                    if (left === null) return <span className="text-[10px] text-slate-400">{t('Официальный срок')}</span>;
-                    if (left < 0) return <span className="text-[10px] text-slate-400">{t('Прошёл')}</span>;
-                    return <span className={`text-[10px] font-semibold ${left <= 30 ? 'text-rose-600' : left <= 90 ? 'text-amber-600' : 'text-slate-400'}`}>{t('через')} {left} дн.</span>;
+                    if (left === null) return <span className="text-xs text-slate-500 dark:text-zinc-400">{t('Официальный срок')}</span>;
+                    if (left < 0) return <span className="text-xs text-slate-500 dark:text-zinc-400">{t('Прошёл')}</span>;
+                    return <span className={`text-xs font-semibold ${left <= 30 ? 'text-rose-600 dark:text-rose-400' : left <= 90 ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-zinc-400'}`}>{t('через')} {left} дн.</span>;
                   })()}
                 </div>
 
@@ -170,10 +185,11 @@ export const DeadlineCalendarModal: React.FC<DeadlineCalendarModalProps> = ({
                   href={ev.portalUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 transition"
+                  className="ar-btn ar-btn-icon w-9 h-9"
                   title={t('Портал подачи')}
+                  aria-label={t('Портал подачи')}
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
             </div>
@@ -181,10 +197,11 @@ export const DeadlineCalendarModal: React.FC<DeadlineCalendarModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <div className="px-4 sm:px-6 py-3 border-t border-[var(--line)] flex justify-end shrink-0">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg text-slate-600 text-xs font-semibold hover:bg-slate-200 transition"
+            className="ar-btn ar-btn-secondary"
           >
             {t('Закрыть')}
           </button>

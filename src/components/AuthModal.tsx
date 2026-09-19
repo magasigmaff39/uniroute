@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertCircle, Compass, ChevronDown, Loader2, X, KeyRound, Eye, EyeOff, Check, ArrowRight, ArrowLeft, Mail, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Loader2, X, KeyRound, Eye, EyeOff, Check, ArrowRight, ArrowLeft, Mail, ShieldCheck, Landmark, GraduationCap, School, Globe2 } from 'lucide-react';
 import { registerUser, loginUser, loginWithGoogle, canUseGoogle, UserAccount } from '../lib/auth';
 import { authApi, ApiError, type AuthConfig } from '../lib/api';
-import { EducationGrade } from '../types';
+import { EducationGrade, TargetTrack } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useI18n } from '../i18n/I18nContext';
+import { BrandLogo, BrandMark } from './ui/Brand';
 
 export type AuthMode = 'register' | 'login';
 
@@ -17,8 +18,16 @@ interface AuthModalProps {
 
 type RegisterSubStep = 'data' | 'otp';
 
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5';
-const errorClass = 'text-[11px] text-rose-500 mt-1';
+const labelClass = 'ar-label';
+
+/** Inline message under a field; the field itself gets aria-invalid. */
+const FieldError: React.FC<{ id: string; text?: string }> = ({ id, text }) =>
+  text ? (
+    <p id={id} className="ar-field-error animate-fadeIn">
+      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+      {text}
+    </p>
+  ) : null;
 
 const GoogleMark = () => (
   <svg viewBox="0 0 48 48" className="w-4 h-4" aria-hidden="true">
@@ -37,11 +46,15 @@ const PasswordInput: React.FC<{
   name?: string;
   showLabel: string;
   hideLabel: string;
-}> = ({ value, onChange, placeholder, autoComplete, name, showLabel, hideLabel }) => {
+  id?: string;
+  invalid?: boolean;
+  describedBy?: string;
+}> = ({ value, onChange, placeholder, autoComplete, name, showLabel, hideLabel, id, invalid, describedBy }) => {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
       <input
+        id={id}
         type={show ? 'text' : 'password'}
         required
         value={value}
@@ -49,12 +62,14 @@ const PasswordInput: React.FC<{
         placeholder={placeholder}
         autoComplete={autoComplete}
         name={name}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? describedBy : undefined}
         className="ar-input pr-11"
       />
       <button
         type="button"
         onClick={() => setShow((v) => !v)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
         aria-label={show ? hideLabel : showLabel}
         title={show ? hideLabel : showLabel}
       >
@@ -75,6 +90,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
   const [lastName, setLastName] = useState('');
   const [age, setAge] = useState<number>(16);
   const [grade, setGrade] = useState<EducationGrade>('grade_10');
+  const [targetTrack, setTargetTrack] = useState<TargetTrack>('all');
   const [gmail, setGmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -152,7 +168,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
   };
 
   const finalizeAccount = async () => {
-    const user = await registerUser({ firstName: firstName.trim(), lastName: lastName.trim(), gmail, age, grade, password, preferredLanguage: lang });
+    const user = await registerUser({ firstName: firstName.trim(), lastName: lastName.trim(), gmail, age, grade, targetTrack, password, preferredLanguage: lang });
     notify(t('auth.toast.created'), 'success');
     onSuccess(user, true);
     onClose();
@@ -272,31 +288,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
   const fullCodeLength = otpDigits.filter((d) => d !== '').length;
 
   const GoogleButton = (
-    <button
-      type="button"
-      onClick={handleGoogle}
-      disabled={googleLoading || loading}
-      className="ar-btn w-full py-3 rounded-xl bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 dark:bg-zinc-900 dark:text-white dark:border-zinc-700 dark:hover:bg-zinc-800 disabled:opacity-50 text-sm font-semibold gap-2.5 shadow-sm"
-    >
+    <button type="button" onClick={handleGoogle} disabled={googleLoading || loading} aria-busy={googleLoading || undefined} className="ar-btn ar-btn-secondary w-full min-h-11 gap-2.5">
       {googleLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleMark />}
       {googleLoading ? t('auth.checking') : t('auth.google')}
     </button>
   );
 
   const Divider = (
-    <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest text-slate-400 dark:text-zinc-500 font-bold">
-      <span className="h-px flex-1 bg-slate-200 dark:bg-zinc-800" />
+    <div className="flex items-center gap-3 text-xs font-medium text-slate-400 dark:text-zinc-500">
+      <span className="h-px flex-1 bg-[var(--line)]" />
       {t('auth.orEmail')}
-      <span className="h-px flex-1 bg-slate-200 dark:bg-zinc-800" />
+      <span className="h-px flex-1 bg-[var(--line)]" />
     </div>
   );
 
-  const primaryBtn =
-    'ar-btn btn-shine w-full py-3.5 rounded-xl bg-slate-950 text-white dark:bg-white dark:text-zinc-900 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_12px_28px_-10px_rgba(15,23,42,0.6)] hover:-translate-y-0.5';
+  const primaryBtn = 'ar-btn ar-btn-primary ar-btn-lg w-full group';
+
+  const tracks: { id: TargetTrack; label: string; icon: React.FC<{ className?: string }> }[] = [
+    { id: 'university', label: t('auth.track.university'), icon: Landmark },
+    { id: 'college', label: t('auth.track.college'), icon: GraduationCap },
+    { id: 'school', label: t('auth.track.school'), icon: School },
+    { id: 'all', label: t('auth.track.all'), icon: Globe2 },
+  ];
+
+  const invalid = (key: string) => (fieldErrors[key] ? { 'aria-invalid': true as const, 'aria-describedby': `auth-err-${key}` } : {});
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/60 backdrop-blur-md animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/40 backdrop-blur-[2px] animate-fadeIn"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -304,33 +323,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
       aria-modal="true"
       aria-label={mode === 'register' ? t('auth.registration') : t('auth.login')}
     >
-      <div className="relative w-full max-w-[960px] max-h-[94vh] grid grid-cols-1 md:grid-cols-12 rounded-[28px] overflow-hidden bg-[var(--surface-raised)] border border-[var(--line)] shadow-[0_40px_120px_-30px_rgba(2,6,23,0.6)] animate-fadeInUp">
+      <div className="relative w-full max-w-[920px] max-h-[calc(100dvh-1.5rem)] sm:max-h-[92vh] grid grid-cols-1 md:grid-cols-12 rounded-2xl overflow-hidden bg-[var(--surface-raised)] border border-[var(--line)] shadow-[var(--shadow-overlay)] animate-popIn">
         {/* Brand panel */}
-        <aside className="hidden md:flex md:col-span-5 relative flex-col justify-between bg-slate-950 text-white p-8 overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none" aria-hidden>
-            <div className="absolute -top-24 -left-20 w-[360px] h-[360px] rounded-full bg-blue-600/35 blur-[100px]" />
-            <div className="absolute -bottom-28 -right-16 w-[320px] h-[320px] rounded-full bg-indigo-600/30 blur-[100px]" />
-            <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:32px_32px]" />
-          </div>
+        <aside className="hidden md:flex md:col-span-5 relative flex-col justify-between gap-10 bg-blue-950 text-white p-8 overflow-hidden">
+          <svg viewBox="0 0 400 300" className="absolute -right-20 -bottom-10 w-[440px] max-w-none h-auto pointer-events-none opacity-[0.08]" aria-hidden>
+            <path d="M0 290 C 110 290, 140 160, 230 150 S 350 100, 400 20" fill="none" stroke="#fff" strokeWidth="44" strokeLinecap="round" />
+          </svg>
 
           <div className="relative flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center">
-              <Compass className="w-5 h-5" />
-            </div>
+            <span className="h-11 px-2 rounded-xl bg-[#fff] flex items-center">
+              <BrandMark className="h-6" />
+            </span>
             <div>
-              <p className="text-base font-extrabold tracking-tight leading-none">AdmitRoute</p>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold mt-1">{t('header.tagline')}</p>
+              <p className="font-display text-lg font-bold tracking-[-0.02em] leading-none">UniRoute</p>
+              <p className="text-xs text-blue-100/70 mt-1">{t('header.tagline')}</p>
             </div>
           </div>
 
           <div className="relative space-y-5">
-            <h2 className="text-2xl font-extrabold tracking-tight leading-tight">{t('auth.hero.title')}</h2>
-            <p className="text-sm text-slate-300 leading-relaxed">{t('auth.hero.text')}</p>
-            <ul className="space-y-2.5">
+            <h2 className="text-2xl font-bold leading-tight tracking-[-0.02em]">{t('auth.hero.title')}</h2>
+            <p className="text-sm text-blue-100/80 leading-relaxed">{t('auth.hero.text')}</p>
+            <ul className="space-y-3">
               {[t('auth.hero.b1'), t('auth.hero.b2'), t('auth.hero.b3')].map((b) => (
-                <li key={b} className="flex items-start gap-2.5 text-sm text-slate-200">
-                  <span className="mt-0.5 w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 text-emerald-300" />
+                <li key={b} className="flex items-start gap-3 text-sm text-blue-50">
+                  <span className="mt-0.5 w-5 h-5 rounded-full bg-white/12 flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3" />
                   </span>
                   {b}
                 </li>
@@ -338,43 +355,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
             </ul>
           </div>
 
-          <p className="relative text-[11px] text-slate-500 flex items-center gap-2">
+          <p className="relative text-xs text-blue-100/60 flex items-center gap-2">
             <ShieldCheck className="w-3.5 h-3.5" /> {t('auth.terms')}
           </p>
         </aside>
 
         {/* Form panel */}
-        <div className="md:col-span-7 overflow-y-auto max-h-[94vh]">
-          <div className="px-5 sm:px-8 pt-5 sm:pt-7 pb-3 flex items-start justify-between gap-3">
+        <div className="md:col-span-7 overflow-y-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[92vh]">
+          <div className="px-5 sm:px-8 pt-5 sm:pt-7 pb-4 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="md:hidden flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-slate-950 dark:bg-white flex items-center justify-center">
-                  <Compass className="w-4 h-4 text-white dark:text-zinc-900" />
-                </div>
-                <span className="font-extrabold tracking-tight text-slate-900 dark:text-white">AdmitRoute</span>
+              <div className="md:hidden mb-4">
+                <BrandLogo size="sm" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white">
-                {mode === 'register' ? t('auth.registration') : t('auth.welcomeBack')}
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">{mode === 'register' ? t('auth.registerSubtitle') : t('auth.loginSubtitle')}</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">{mode === 'register' ? t('auth.registration') : t('auth.welcomeBack')}</h3>
+              <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1.5">{mode === 'register' ? t('auth.registerSubtitle') : t('auth.loginSubtitle')}</p>
             </div>
-            <button type="button" onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-zinc-800 shrink-0" aria-label={t('common.close')}>
-              <X className="w-4 h-4" />
+            <button type="button" onClick={onClose} className="ar-btn ar-btn-icon -mr-2 -mt-1 shrink-0" aria-label={t('common.close')}>
+              <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Segmented switch */}
           <div className="px-5 sm:px-8">
-            <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-100 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800">
+            <div className="grid grid-cols-2 gap-0.5 p-1 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-[var(--line)]" role="tablist">
               {(['register', 'login'] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
+                  role="tab"
                   onClick={() => switchMode(m)}
-                  className={`py-2 rounded-xl text-xs font-bold tracking-wide transition ${
+                  className={`h-9 rounded-lg text-[13px] font-semibold transition-[background-color,color,box-shadow] duration-150 ${
                     mode === m ? 'bg-white text-slate-950 shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white'
                   }`}
-                  aria-pressed={mode === m}
+                  aria-selected={mode === m}
                 >
                   {m === 'register' ? t('auth.register') : t('auth.login')}
                 </button>
@@ -382,17 +395,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
             </div>
           </div>
 
-          <div className="px-5 sm:px-8 pb-6 sm:pb-8 pt-5 space-y-4">
+          <div className="px-5 sm:px-8 pb-6 sm:pb-8 pt-5 space-y-5">
             {googleAvailable && registerStep === 'data' && (
-              <>
-                {GoogleButton}
-                <p className="text-[11px] text-slate-500 dark:text-zinc-500 leading-relaxed -mt-1">{t('auth.googleHint')}</p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  {GoogleButton}
+                  <p className="text-xs text-slate-500 dark:text-zinc-500 leading-relaxed">{t('auth.googleHint')}</p>
+                </div>
                 {Divider}
-              </>
+              </div>
             )}
 
             {error && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/40 dark:border-rose-900/60 dark:text-rose-200 text-xs flex items-start gap-2 animate-fadeIn">
+              <div className="ar-notice ar-notice-error animate-fadeIn" role="alert">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
@@ -406,13 +421,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
                   return (
                     <li
                       key={label}
-                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-semibold border ${
-                        active || done
-                          ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100'
-                          : 'border-slate-200 text-slate-400 dark:border-zinc-800 dark:text-zinc-500'
+                      className={`flex items-center gap-2 rounded-lg px-3 h-9 text-[13px] font-medium border ${
+                        active || done ? 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100' : 'border-[var(--line)] text-slate-400 dark:text-zinc-500'
                       }`}
                     >
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${done ? 'bg-blue-600 text-white' : active ? 'bg-blue-600/15 text-blue-700 dark:text-blue-200' : 'bg-slate-100 dark:bg-zinc-800'}`}>
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold ${done ? 'bg-blue-600 text-white' : active ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-zinc-800'}`}>
                         {done ? <Check className="w-3 h-3" /> : i + 1}
                       </span>
                       {label}
@@ -423,63 +436,111 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
             )}
 
             {mode === 'register' && registerStep === 'data' && (
-              <form onSubmit={handleRegisterSubmit} className="space-y-3.5" autoComplete="on" noValidate>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleRegisterSubmit} className="space-y-4" autoComplete="on" noValidate>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={labelClass}>{t('auth.firstName')}</label>
-                    <input type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Алихан" autoComplete="given-name" className="ar-input" />
-                    {fieldErrors.firstName && <p className={errorClass}>{fieldErrors.firstName}</p>}
+                    <label htmlFor="auth-first" className={labelClass}>
+                      {t('auth.firstName')}
+                    </label>
+                    <input id="auth-first" type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Алихан" autoComplete="given-name" className="ar-input" {...invalid('firstName')} />
+                    <FieldError id="auth-err-firstName" text={fieldErrors.firstName} />
                   </div>
                   <div>
-                    <label className={labelClass}>{t('auth.lastName')}</label>
-                    <input type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Сериков" autoComplete="family-name" className="ar-input" />
-                    {fieldErrors.lastName && <p className={errorClass}>{fieldErrors.lastName}</p>}
+                    <label htmlFor="auth-last" className={labelClass}>
+                      {t('auth.lastName')}
+                    </label>
+                    <input id="auth-last" type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Сериков" autoComplete="family-name" className="ar-input" {...invalid('lastName')} />
+                    <FieldError id="auth-err-lastName" text={fieldErrors.lastName} />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* Target track selector */}
+                <fieldset>
+                  <legend className={labelClass}>{t('auth.targetTrack')}</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {tracks.map(({ id, label, icon: Icon }) => (
+                      <button key={id} type="button" onClick={() => setTargetTrack(id)} aria-pressed={targetTrack === id} className="ar-chip justify-center min-w-0">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelClass}>{t('auth.age')}</label>
-                    <input type="number" min={13} max={26} required value={age} onChange={(e) => setAge(parseInt(e.target.value) || 16)} className="ar-input" />
+                    <label htmlFor="auth-age" className={labelClass}>
+                      {t('auth.age')}
+                    </label>
+                    <input id="auth-age" type="number" inputMode="numeric" min={11} max={26} required value={age} onChange={(e) => setAge(parseInt(e.target.value) || 16)} className="ar-input" />
                   </div>
                   <div>
-                    <label className={labelClass}>{t('auth.grade')}</label>
-                    <div className="relative">
-                      <select value={grade} onChange={(e) => setGrade(e.target.value as EducationGrade)} className="ar-input appearance-none pr-10">
-                        <option value="grade_9">{t('auth.grade.9')}</option>
-                        <option value="grade_10">{t('auth.grade.10')}</option>
-                        <option value="grade_11">{t('auth.grade.11')}</option>
-                        <option value="college">{t('auth.grade.college')}</option>
-                        <option value="gap_year">{t('auth.grade.gap')}</option>
-                      </select>
-                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
+                    <label htmlFor="auth-grade" className={labelClass}>
+                      {t('auth.grade')}
+                    </label>
+                    <select id="auth-grade" value={grade} onChange={(e) => setGrade(e.target.value as EducationGrade)} className="ar-input">
+                      <option value="grade_7">{t('auth.grade.7')}</option>
+                      <option value="grade_8">{t('auth.grade.8')}</option>
+                      <option value="grade_9">{t('auth.grade.9')}</option>
+                      <option value="grade_10">{t('auth.grade.10')}</option>
+                      <option value="grade_11">{t('auth.grade.11')}</option>
+                      <option value="grade_12">{t('auth.grade.12')}</option>
+                      <option value="college">{t('auth.grade.college')}</option>
+                      <option value="gap_year">{t('auth.grade.gap')}</option>
+                    </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className={labelClass}>{t('auth.email')}</label>
+                  <label htmlFor="auth-email" className={labelClass}>
+                    {t('auth.email')}
+                  </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input type="email" required value={gmail} onChange={(e) => setGmail(e.target.value)} placeholder="student@gmail.com" autoComplete="username" name="username" className="ar-input pl-10" />
+                    <input id="auth-email" type="email" required value={gmail} onChange={(e) => setGmail(e.target.value)} placeholder="student@gmail.com" autoComplete="username" name="username" className="ar-input pl-10" {...invalid('gmail')} />
                   </div>
-                  {fieldErrors.gmail && <p className={errorClass}>{fieldErrors.gmail}</p>}
+                  <FieldError id="auth-err-gmail" text={fieldErrors.gmail} />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={labelClass}>{t('auth.password')}</label>
-                    <PasswordInput value={password} onChange={setPassword} placeholder={t('auth.passwordHint')} autoComplete="new-password" name="new-password" showLabel={t('auth.showPassword')} hideLabel={t('auth.hidePassword')} />
-                    {fieldErrors.password && <p className={errorClass}>{fieldErrors.password}</p>}
+                    <label htmlFor="auth-pass" className={labelClass}>
+                      {t('auth.password')}
+                    </label>
+                    <PasswordInput
+                      id="auth-pass"
+                      value={password}
+                      onChange={setPassword}
+                      placeholder={t('auth.passwordHint')}
+                      autoComplete="new-password"
+                      name="new-password"
+                      showLabel={t('auth.showPassword')}
+                      hideLabel={t('auth.hidePassword')}
+                      invalid={Boolean(fieldErrors.password)}
+                      describedBy="auth-err-password"
+                    />
+                    <FieldError id="auth-err-password" text={fieldErrors.password} />
                   </div>
                   <div>
-                    <label className={labelClass}>{t('auth.confirmPassword')}</label>
-                    <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder={t('auth.confirmHint')} autoComplete="new-password" showLabel={t('auth.showPassword')} hideLabel={t('auth.hidePassword')} />
-                    {fieldErrors.confirmPassword && <p className={errorClass}>{fieldErrors.confirmPassword}</p>}
+                    <label htmlFor="auth-pass2" className={labelClass}>
+                      {t('auth.confirmPassword')}
+                    </label>
+                    <PasswordInput
+                      id="auth-pass2"
+                      value={confirmPassword}
+                      onChange={setConfirmPassword}
+                      placeholder={t('auth.confirmHint')}
+                      autoComplete="new-password"
+                      showLabel={t('auth.showPassword')}
+                      hideLabel={t('auth.hidePassword')}
+                      invalid={Boolean(fieldErrors.confirmPassword)}
+                      describedBy="auth-err-confirmPassword"
+                    />
+                    <FieldError id="auth-err-confirmPassword" text={fieldErrors.confirmPassword} />
                   </div>
                 </div>
 
-                <button type="submit" disabled={loading} className={primaryBtn}>
+                <button type="submit" disabled={loading} aria-busy={loading || undefined} className={`${primaryBtn} mt-1`}>
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" /> {t('auth.sending')}
@@ -487,14 +548,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
                   ) : (
                     <>
                       {otpRequired ? t('auth.sendCode').replace(/\s*→\s*$/, '') : t('auth.createAccount').replace(/\s*→\s*$/, '')}
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                     </>
                   )}
                 </button>
 
-                <p className="text-center text-xs text-slate-500 dark:text-zinc-400 pt-1">
+                <p className="text-center text-[13px] text-slate-500 dark:text-zinc-400">
                   {t('auth.haveAccount')}{' '}
-                  <button type="button" onClick={() => switchMode('login')} className="font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                  <button type="button" onClick={() => switchMode('login')} className="ar-link">
                     {t('auth.login')}
                   </button>
                 </p>
@@ -502,19 +563,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
             )}
 
             {mode === 'register' && registerStep === 'otp' && (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <p className="text-sm text-slate-600 dark:text-zinc-300">
-                  {t('auth.codeSentTo')} <strong className="text-slate-950 dark:text-white">{gmail}</strong>. {t('auth.codeAfter')}
+              <form onSubmit={handleVerifyOtp} className="space-y-5">
+                <p className="text-sm text-slate-600 dark:text-zinc-300 leading-relaxed">
+                  {t('auth.codeSentTo')} <strong className="font-semibold text-slate-950 dark:text-white">{gmail}</strong>. {t('auth.codeAfter')}
                 </p>
                 {devCode && (
-                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-900/60 dark:text-amber-100 text-xs flex items-start gap-2">
+                  <div className="ar-notice border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
                     <KeyRound className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                     <span>
                       {t('auth.devCode')} <strong className="font-mono text-base tracking-widest">{devCode}</strong>
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-6 gap-2 sm:gap-3">
                   {otpDigits.map((digit, index) => (
                     <input
                       key={index}
@@ -530,24 +591,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
                       onPaste={handleOtpPaste}
                       autoComplete={index === 0 ? 'one-time-code' : 'off'}
                       aria-label={`${t('auth.step.code')} ${index + 1}`}
-                      className={`w-full aspect-square max-h-14 rounded-xl border text-center text-xl font-bold bg-[var(--surface-raised)] outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-[var(--ring)] ${
-                        digit ? 'border-blue-500 text-slate-950 dark:text-white' : 'border-[var(--line)] text-slate-500'
-                      }`}
+                      className={`ar-input !px-0 h-12 sm:h-14 text-center !text-xl font-semibold tabular-nums ${digit ? '!border-blue-500 text-slate-950 dark:text-white' : ''}`}
                     />
                   ))}
                 </div>
-                <button type="submit" disabled={loading || fullCodeLength !== 6} className={primaryBtn}>
+                <button type="submit" disabled={loading || fullCodeLength !== 6} aria-busy={loading || undefined} className={primaryBtn}>
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                   {loading ? t('auth.checking') : t('auth.confirmAndStart').replace(/\s*→\s*$/, '')}
-                  {!loading && <ArrowRight className="w-4 h-4" />}
+                  {!loading && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />}
                 </button>
-                <div className="flex items-center justify-between text-xs pt-1">
+                <div className="flex items-center justify-between gap-3 text-[13px]">
                   <button
                     type="button"
                     onClick={() => {
                       setRegisterStep('data');
                       setError(null);
                     }}
-                    className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-950 dark:hover:text-white font-semibold"
+                    className="ar-btn ar-btn-quiet ar-btn-sm -ml-3"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" /> {t('auth.changeData').replace(/^←\s*/, '')}
                   </button>
@@ -555,7 +615,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
                     type="button"
                     disabled={resendCooldown > 0 || loading}
                     onClick={() => handleRegisterSubmit({ preventDefault: () => undefined } as React.FormEvent)}
-                    className="text-blue-600 dark:text-blue-400 hover:underline disabled:text-slate-400 disabled:no-underline font-semibold tabular-nums"
+                    className="ar-link tabular-nums disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed"
                   >
                     {resendCooldown > 0 ? `${t('auth.resendIn')} ${resendCooldown}с` : t('auth.resend')}
                   </button>
@@ -566,17 +626,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
             {mode === 'login' && (
               <form onSubmit={handleLoginSubmit} className="space-y-4" autoComplete="on" noValidate>
                 <div>
-                  <label className={labelClass}>{t('auth.email')}</label>
+                  <label htmlFor="auth-login-email" className={labelClass}>
+                    {t('auth.email')}
+                  </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="student@gmail.com" autoComplete="username" className="ar-input pl-10" />
+                    <input id="auth-login-email" type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="student@gmail.com" autoComplete="username" className="ar-input pl-10" />
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>{t('auth.password')}</label>
-                  <PasswordInput value={loginPassword} onChange={setLoginPassword} placeholder={t('auth.yourPassword')} autoComplete="current-password" showLabel={t('auth.showPassword')} hideLabel={t('auth.hidePassword')} />
+                  <label htmlFor="auth-login-pass" className={labelClass}>
+                    {t('auth.password')}
+                  </label>
+                  <PasswordInput id="auth-login-pass" value={loginPassword} onChange={setLoginPassword} placeholder={t('auth.yourPassword')} autoComplete="current-password" showLabel={t('auth.showPassword')} hideLabel={t('auth.hidePassword')} />
                 </div>
-                <button type="submit" disabled={loading} className={primaryBtn}>
+                <button type="submit" disabled={loading} aria-busy={loading || undefined} className={`${primaryBtn} mt-1`}>
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" /> {t('auth.checking')}
@@ -584,13 +648,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode = 'reg
                   ) : (
                     <>
                       {t('auth.loginButton').replace(/\s*→\s*$/, '')}
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                     </>
                   )}
                 </button>
-                <p className="text-center text-xs text-slate-500 dark:text-zinc-400 pt-1">
+                <p className="text-center text-[13px] text-slate-500 dark:text-zinc-400">
                   {t('auth.noAccount')}{' '}
-                  <button type="button" onClick={() => switchMode('register')} className="font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                  <button type="button" onClick={() => switchMode('register')} className="ar-link">
                     {t('auth.register')}
                   </button>
                 </p>

@@ -228,7 +228,7 @@ export const OLYMPIAD_DATABASE = [
     online: false,
     cost: 'за счёт государства',
     languages: ['en', 'ru', 'kk'],
-    benefits: ['Медаль IMO — практически гарантированный приём и полное финансирование в MIT, Princeton, Stanford, Cambridge, KAIST, NUS', 'Грант РК без конкурса'],
+    benefits: ['Медаль IMO — один из сильнейших сигналов для приёмных комиссий MIT, Princeton, Stanford, Cambridge, KAIST, NUS', 'Грант РК без конкурса'],
     recognition: { kazakhstan: 5, usa: 5, europe: 5, asia: 5 },
     difficulty: 5,
     officialUrl: 'https://www.imo-official.org',

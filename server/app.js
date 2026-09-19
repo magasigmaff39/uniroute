@@ -1,4 +1,4 @@
-// AdmitRoute AI backend — Express 5 application instance.
+// UniRoute AI backend — Express 5 application instance.
 // Exported for the standalone server (server/index.js) and for Cloud Functions for Firebase (server/firebase.js).
 import express from 'express';
 import cors from 'cors';
@@ -20,6 +20,8 @@ import { documentsRouter } from './routes/documents.routes.js';
 import { portfolioRouter } from './routes/portfolio.routes.js';
 import { olympiadsRouter } from './routes/olympiads.routes.js';
 import { mailRouter, sendPlanHandler } from './routes/mail.routes.js';
+import { newsRouter } from './routes/news.routes.js';
+import { plannerRouter } from './routes/planner.routes.js';
 
 validateUniversityDatabase();
 
@@ -76,7 +78,7 @@ app.use((req, res, next) => {
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'AdmitRoute AI Backend',
+    service: 'UniRoute AI Backend',
     version: '3.0.0',
     time: new Date().toISOString(),
     runtime: isFirebaseRuntime ? 'firebase-functions' : 'node',
@@ -97,6 +99,8 @@ app.use('/api/documents', documentsRouter);
 app.use('/api/portfolio', portfolioRouter);
 app.use('/api/olympiads', olympiadsRouter);
 app.use('/api/mail', mailRouter);
+app.use('/api/news', newsRouter);
+app.use('/api/planner', plannerRouter);
 
 // Backwards-compatible aliases for the original frontend endpoints.
 app.post('/api/send-otp', authLimiter, sendOtpHandler);

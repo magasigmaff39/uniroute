@@ -21,7 +21,7 @@ export const sendPlanHandler = asyncHandler(async (req, res) => {
       to,
       subject: `Индивидуальная маршрутная карта поступления — ${recipientName}`,
       html: roadmapTemplate({ recipientName, score, matchedUnis, roadmap }),
-      text: `Маршрутная карта AdmitRoute для ${recipientName}. Индекс готовности ${score}%.`,
+      text: `Маршрутная карта UniRoute для ${recipientName}. Индекс готовности ${score}%.`,
     });
 
     if (!result.delivered) {

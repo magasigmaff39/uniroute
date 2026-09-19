@@ -1,4 +1,6 @@
-export type EducationGrade = 'grade_9' | 'grade_10' | 'grade_11' | 'college' | 'gap_year';
+export type EducationGrade = 'grade_7' | 'grade_8' | 'grade_9' | 'grade_10' | 'grade_11' | 'grade_12' | 'college' | 'gap_year';
+
+export type InstitutionCategory = 'university' | 'college' | 'school';
 
 export type IntendedMajor =
   | 'cs_ai'
@@ -24,11 +26,43 @@ export type AdvisorTone = 'supportive' | 'strategic' | 'academic';
 
 export type AppLanguage = 'kk' | 'en' | 'ru';
 
+/**
+ * How much the platform knows about the applicant: nothing yet, the 7-answer express test
+ * (band estimates → preliminary AI verdict) or the detailed questionnaire (exact scores → precise verdict).
+ */
+export type AssessmentLevel = 'quick' | 'detailed';
+
+export type TargetTrack = 'all' | 'university' | 'college' | 'school';
+
+export interface EducationalNewsItem {
+  id: string;
+  title: string;
+  category: InstitutionCategory | 'all';
+  institutionId?: string;
+  institutionName: string;
+  date: string;
+  summary: string;
+  content: string;
+  tags: string[];
+  originalUrl: string;
+  targetGrades?: string[];
+  targetTrack?: TargetTrack;
+  badge?: string;
+  sourceTitle?: string;
+}
+
 export interface ApplicantProfile {
+  /** Full name as used everywhere (kept in sync with first / last name). */
   name: string;
+  firstName?: string;
+  lastName?: string;
+  birthDate?: string; // YYYY-MM-DD
+  country?: string;
+  city?: string;
   grade: EducationGrade;
   age: number;
   schoolType: 'nis' | 'bil' | 'rfms' | 'gymnasium' | 'standard' | 'international';
+  schoolName?: string;
   gpa: number; // Scale 1.0 - 4.0 or 2.0 - 5.0
   gpaScale: '4.0' | '5.0';
   profileSubjects: string[];
@@ -40,31 +74,123 @@ export interface ApplicantProfile {
   satScore?: number;
   hasUnt: boolean;
   untScore?: number;
+  /** TOEFL, ACT, Duolingo, AP… — anything besides IELTS / SAT / UNT */
+  otherExams?: OtherExam[];
+  englishLevel?: EnglishLevel;
 
-  // Extracurriculars & awards
+  // Extracurriculars & awards (itemised entries live in the portfolio)
   olympiadLevel: 'none' | 'school' | 'city' | 'republican' | 'international';
   olympiadDetails?: string;
   leadershipActivities: string[];
   extracurriculars: string[];
-  targetUniversityIds: string[];
+  interests?: string[];
+  skills?: string[];
 
   // Goals & Constraints
+  targetUniversityIds: string[];
+  /** Programme and intake chosen for a university on the applicant's list */
+  universityPlans?: Record<string, { program?: string; year?: string }>;
+  targetTrack?: TargetTrack;
   targetMajors: IntendedMajor[];
   targetRegions: TargetRegion[];
   budgetTier: BudgetTier;
-  targetYear: '2026' | '2027';
+  /** Year of entry, e.g. '2027' (see utils/years for the choice offered) */
+  targetYear: string;
   advisorTone: AdvisorTone;
 
-  // Personal context for the AI advisor (all optional — filled in the AI panel)
-  careerGoal?: string;          // desired profession / long-term goal
-  allergies?: string;           // pollen, food, dust, medications
-  healthNotes?: string;         // chronic conditions, mobility, mental health support needs
-  dietaryNeeds?: string;        // halal, vegetarian, etc.
+  // Personal context for the AI advisor
+  careerGoal?: string;          // desired profession
+  careerPlans?: string;         // longer-term plans in the applicant's words
+  allergies?: string;
+  healthNotes?: string;
+  dietaryNeeds?: string;
   climatePreference?: 'any' | 'warm' | 'cold' | 'mild';
   cityPreference?: 'any' | 'megacity' | 'mid_city' | 'campus_town';
-  personalNotes?: string;       // free text the applicant wants the AI to consider
+  personalNotes?: string;
   languagesSpoken?: string[];
+
+  /** Set by the start test / detailed test; undefined until the applicant answers anything. */
+  assessmentLevel?: AssessmentLevel;
+  assessmentUpdatedAt?: string;
+  quickTestAt?: string;
+  detailedTestAt?: string;
+  /** Where each fact came from — lets every later screen skip what the applicant already said. */
+  fieldSources?: Partial<Record<ProfileFact, FactSource>>;
 }
+
+export type EnglishLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+
+export interface OtherExam {
+  id: string;
+  name: string;
+  score: string;
+  date?: string;
+}
+
+/** One thing the applicant can tell the system about themselves (may span several profile fields). */
+export type ProfileFact =
+  | 'name'
+  | 'birthDate'
+  | 'age'
+  | 'location'
+  | 'grade'
+  | 'targetTrack'
+  | 'schoolType'
+  | 'schoolName'
+  | 'gpa'
+  | 'profileSubjects'
+  | 'english'
+  | 'exams'
+  | 'otherExams'
+  | 'olympiadLevel'
+  | 'olympiadDetails'
+  | 'achievements'
+  | 'projects'
+  | 'experience'
+  | 'leadership'
+  | 'extracurriculars'
+  | 'interests'
+  | 'skills'
+  | 'majors'
+  | 'regions'
+  | 'budget'
+  | 'targetUniversities'
+  | 'targetYear'
+  | 'careerGoal'
+  | 'careerPlans'
+  | 'languages'
+  | 'documents'
+  | 'preferences';
+
+/** Top-level sections of the signed-in cabinet (the left navigation). */
+export type AppSection = 'home' | 'profile' | 'universities' | 'analysis' | 'deadlines' | 'tasks' | 'olympiads' | 'portfolio' | 'grants' | 'documents' | 'news' | 'settings';
+
+/** Blocks of the single profile. */
+export type ProfileBlockId =
+  | 'personal'
+  | 'education'
+  | 'admission'
+  | 'skills'
+  | 'exams'
+  | 'achievements'
+  | 'projects'
+  | 'experience'
+  | 'goals'
+  | 'documents'
+  | 'extra';
+
+/** Where a link inside the cabinet leads. */
+export interface NavTarget {
+  section: AppSection;
+  /** Profile block to scroll to / open for editing */
+  block?: ProfileBlockId;
+  /** A flow shown inside «Мой профиль»: the applicant test, its result, or «fill the gaps» */
+  flow?: 'test' | 'result' | 'fill';
+  /** Inner tab of «Университеты» (list / pick / compare) or «Анализ поступления» */
+  sub?: string;
+}
+/** `quick` answers are ranges; `auto` means the system picked the value, not the applicant. */
+export type FactSource = 'registration' | 'quick' | 'detailed' | 'profile' | 'portfolio' | 'auto';
 
 export interface ReadinessScore {
   overall: number; // 0 - 100
@@ -146,6 +272,8 @@ export interface University {
   country: string;
   flag: string;
   region: TargetRegion;
+  category?: InstitutionCategory;
+  gradeLevel?: string;
   type?: 'public' | 'private' | 'autonomous' | 'national';
   founded?: number;
   worldRank?: string;
@@ -244,8 +372,124 @@ export interface UserTask {
   createdAt: string;
   updatedAt?: string;
   source?: string;
+  /** Optional links: the university, planner deadline and olympiad the task belongs to */
+  universityId?: string | null;
+  deadlineKey?: string | null;
+  olympiadId?: string | null;
   /** Derived on the server: done_on_time | done_late | overdue | upcoming | no_deadline */
   timeliness: 'done_on_time' | 'done_late' | 'overdue' | 'upcoming' | 'no_deadline';
+}
+
+// ---------------------------------------------------------------------------
+// Admission planner: deadlines, favourite olympiads, the motivation-letter draft
+// ---------------------------------------------------------------------------
+
+export type DeadlineKind = 'application' | 'documents' | 'scholarship' | 'exam' | 'olympiad' | 'other';
+/** official = the university's own date; recommended = computed from it; approximate = catalogue month; custom = the applicant's */
+export type DeadlineSource = 'official' | 'recommended' | 'approximate' | 'custom';
+export type DeadlineStatus = 'done' | 'passed' | 'urgent' | 'soon' | 'upcoming' | 'no_date';
+
+export interface CustomDeadline {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  kind: DeadlineKind;
+  universityId: string | null;
+  note?: string;
+}
+
+export interface EssayProject {
+  title: string;
+  problem: string;
+  role: string;
+  methods: string;
+  result: string;
+  skills: string;
+  link: string;
+}
+
+export interface EssayDraft {
+  hook: string;
+  projects: EssayProject[];
+  university: { universityId: string; program: string; whyUniversity: string; whyProgram: string; features: string; opportunities: string; experienceLink: string };
+  future: { academic: string; professional: string; direction: string; problems: string; howHelps: string };
+  updatedAt?: string;
+}
+
+export interface PlannerState {
+  favoriteOlympiadIds: string[];
+  /** Deadline id → date it was marked as done */
+  deadlineDone: Record<string, string>;
+  customDeadlines: CustomDeadline[];
+  essay: EssayDraft | null;
+}
+
+/** One row of «Дедлайны», built from the universities, the favourite olympiads and the applicant's own dates. */
+export interface DeadlineItem {
+  id: string;
+  kind: DeadlineKind;
+  source: DeadlineSource;
+  /** Dictionary key of the title (with vars) or a ready title for custom dates */
+  titleKey?: string;
+  titleVars?: Record<string, string | number>;
+  title?: string;
+  /** Note from the knowledge base ("ED", "загрузка IELTS/SAT") or the applicant's note */
+  note?: string;
+  universityId: string | null;
+  olympiadId?: string | null;
+  date: string | null;
+  daysLeft: number | null;
+  status: DeadlineStatus;
+  /** Marked as done by the applicant (as opposed to a requirement already met) */
+  manualDone: boolean;
+  /** Requirement already satisfied by the profile (e.g. IELTS score above the minimum) */
+  satisfied?: boolean;
+  taskCategory: TaskCategory;
+  url?: string;
+}
+
+// ---------------------------------------------------------------------------
+// AI: comparison insights, portfolio feedback, essay feedback
+// ---------------------------------------------------------------------------
+
+export type ComparisonDimensionKey = 'requirements' | 'deadlines' | 'cost' | 'scholarships' | 'exams' | 'portfolio' | 'profileFit';
+
+export interface ComparisonInsights {
+  universityIds: string[];
+  overview: string;
+  dimensions: { key: ComparisonDimensionKey; summary: string; notes: { id: string; text: string }[]; consider: string }[];
+  tradeoffs: string[];
+  questions: string[];
+  dataGaps: string[];
+  model: string;
+}
+
+export interface PortfolioFeedback {
+  universityIds: string[];
+  field: PortfolioFieldId;
+  fieldTitle: string;
+  summary: string;
+  strengths: { text: string; items: string[] }[];
+  gaps: { text: string; why: string }[];
+  relevant: { title: string; why: string }[];
+  develop: { text: string; how: string }[];
+  addDocuments: string[];
+  addActivities: string[];
+  perUniversity: { id: string; alignment: 'strong' | 'partial' | 'weak'; comment: string }[];
+  recommendations: { title: string; detail: string; priority: 'high' | 'medium' | 'low' }[];
+  model: string;
+}
+
+export type EssayStage = 'hook' | 'projects' | 'university' | 'future';
+export type EssayIssueType = 'generic' | 'cliche' | 'no_example' | 'no_link' | 'no_result' | 'weak_university_link' | 'logic' | 'other';
+
+export interface EssayFeedback {
+  stage: EssayStage | 'all';
+  summary: string;
+  strengths: string[];
+  issues: { type: EssayIssueType; quote: string; comment: string; suggestion: string }[];
+  questions: string[];
+  model: string;
 }
 
 export type DocumentKind =
@@ -478,6 +722,7 @@ export interface UniversityComparison {
 /** What the user currently sees — sent along with AI requests so the advisor has full context. */
 export interface UiState {
   step?: number;
+  section?: string;
   selectedForCompare?: string[];
   viewingUniversityId?: string;
   roadmapDone?: string;

@@ -1,4 +1,4 @@
-// Typed HTTP client for the AdmitRoute backend. The browser never talks to AI providers directly and
+// Typed HTTP client for the UniRoute backend. The browser never talks to AI providers directly and
 // never holds API keys: everything goes through /api. Errors surface as ApiError so the UI can show an
 // honest message instead of inventing data.
 import type {
@@ -6,8 +6,17 @@ import type {
   AppLanguage,
   ChanceEstimate,
   ChatMessage,
+  ComparisonInsights,
+  EssayDraft,
+  EssayFeedback,
+  EssayStage,
+  PlannerState,
+  PortfolioFeedback,
   DocumentChecklistItem,
   DocumentKind,
+  EducationalNewsItem,
+  TargetTrack,
+  FitTier,
   Olympiad,
   OlympiadAdvice,
   PortfolioEvaluation,
@@ -198,6 +207,7 @@ export interface UserAccount {
   email?: string;
   age: number;
   grade: ApplicantProfile['grade'];
+  targetTrack?: TargetTrack;
   photoUrl?: string | null;
   providers?: ('password' | 'google')[];
   createdAt: string;
@@ -227,16 +237,35 @@ export const authApi = {
     request<{ success: boolean; delivered: boolean; devCode?: string; message: string; ttlMinutes: number }>('/auth/send-otp', { method: 'POST', body: { email, name } }),
   verifyOtp: (email: string, code: string) => request<{ success: boolean; verified: boolean }>('/auth/verify-otp', { method: 'POST', body: { email, code } }),
   google: (idToken: string, preferredLanguage?: AppLanguage) => request<AuthResponse>('/auth/google', { method: 'POST', body: { idToken, preferredLanguage } }),
-  register: (payload: { firstName: string; lastName: string; email: string; age: number; grade: string; password: string; preferredLanguage?: AppLanguage }) =>
+  register: (payload: { firstName: string; lastName: string; email: string; age: number; grade: string; targetTrack?: TargetTrack; password: string; preferredLanguage?: AppLanguage }) =>
     request<AuthResponse>('/auth/register', { method: 'POST', body: payload }),
   login: (email: string, password: string) => request<AuthResponse>('/auth/login', { method: 'POST', body: { email, password } }),
   logout: () => request<{ success: boolean }>('/auth/logout', { method: 'POST' }),
   me: () => request<{ user: UserAccount; profile: { profile: ApplicantProfile; updatedAt: string } | null }>('/auth/me'),
-  updateMe: (patch: Partial<Pick<UserAccount, 'firstName' | 'lastName' | 'age' | 'grade' | 'preferredLanguage'>>) =>
+  updateMe: (patch: Partial<Pick<UserAccount, 'firstName' | 'lastName' | 'age' | 'grade' | 'targetTrack' | 'preferredLanguage'>>) =>
     request<{ user: UserAccount }>('/auth/me', { method: 'PATCH', body: patch }),
   deleteAccount: () => request<{ success: boolean }>('/auth/me', { method: 'DELETE' }),
   getProfile: () => request<{ profile: ApplicantProfile | null; updatedAt: string | null }>('/auth/profile'),
   saveProfile: (profile: ApplicantProfile) => request<{ profile: ApplicantProfile; updatedAt: string }>('/auth/profile', { method: 'PUT', body: { profile } }),
+};
+
+export const newsApi = {
+  list: (params?: { category?: string; track?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.category && params.category !== 'all') q.set('category', params.category);
+    if (params?.track && params.track !== 'all') q.set('track', params.track);
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString();
+    return request<{ news: EducationalNewsItem[]; total: number }>(`/news${qs ? `?${qs}` : ''}`);
+  },
+  recommended: (params?: { track?: string; grade?: string; targetIds?: string[] }) => {
+    const q = new URLSearchParams();
+    if (params?.track) q.set('track', params.track);
+    if (params?.grade) q.set('grade', params.grade);
+    if (params?.targetIds?.length) q.set('targetIds', params.targetIds.join(','));
+    const qs = q.toString();
+    return request<{ news: EducationalNewsItem[]; total: number; matchedTrack: string }>(`/news/recommended${qs ? `?${qs}` : ''}`);
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -322,6 +351,15 @@ export interface ApplicantAnalysis {
   model: string;
 }
 
+/** Express verdict after the 7-question test: a short AI paragraph plus the system's three picks. */
+export interface QuickVerdict {
+  verdict: string;
+  focus: string[];
+  confidence: 'low' | 'medium';
+  picks: { id: string; name: string; shortName: string; probability: number; tier: FitTier; reasons: string[] }[];
+  model: string;
+}
+
 export interface EssayReview {
   score: number | null;
   verdict?: string;
@@ -351,8 +389,15 @@ export const aiApi = {
     request<ApplicantAnalysis>('/ai/analyze', { method: 'POST', body: { profile, freeText, language, limit, uiState: getUiState() }, timeoutMs: 180_000 }),
   compare: (universityIds: string[], profile: ApplicantProfile | null, language: AppLanguage) =>
     request<UniversityComparison>('/ai/compare', { method: 'POST', body: { universityIds, profile, language, uiState: getUiState() }, timeoutMs: 180_000 }),
+  /** Differences between universities explained by facts and the profile — deliberately without a ranking. */
+  compareInsights: (universityIds: string[], profile: ApplicantProfile | null, language: AppLanguage) =>
+    request<ComparisonInsights>('/ai/compare-insights', { method: 'POST', body: { universityIds, profile, language, uiState: getUiState() }, timeoutMs: 150_000 }),
+  essayFeedback: (stage: EssayStage | 'all', sections: EssayDraft, universityId: string | undefined, profile: ApplicantProfile | null, language: AppLanguage) =>
+    request<EssayFeedback>('/ai/essay-feedback', { method: 'POST', body: { stage, sections, universityId, profile, language, uiState: { ...getUiState(), essayDraft: undefined } }, timeoutMs: 120_000 }),
   essayReview: (essay: string, universityId: string | undefined, language: AppLanguage, profile?: ApplicantProfile | null) =>
     request<EssayReview>('/ai/essay-review', { method: 'POST', body: { essay, universityId, language, profile, uiState: { ...getUiState(), essayDraft: undefined } }, timeoutMs: 150_000 }),
+  quickVerdict: (profile: ApplicantProfile, language: AppLanguage) =>
+    request<QuickVerdict>('/ai/quick-verdict', { method: 'POST', body: { profile, language, uiState: getUiState() }, timeoutMs: 45_000 }),
   translate: (texts: string[], targetLang: AppLanguage) => request<{ items: string[] }>('/ai/translate', { method: 'POST', body: { texts, targetLang }, timeoutMs: 90_000 }),
   transcribe: async (blob: Blob, language: AppLanguage) =>
     request<{ text: string }>(`/ai/transcribe?lang=${language}`, { method: 'POST', body: { audio: { mimeType: blob.type || 'audio/webm', fileName: 'voice.webm', dataBase64: await fileToBase64(blob) } } }),
@@ -374,13 +419,16 @@ export interface TaskStats {
   byCategory: Record<string, number>;
 }
 
+/** Optional links of a task to a university, a planner deadline and an olympiad. */
+export type TaskLinks = { universityId?: string | null; deadlineKey?: string | null; olympiadId?: string | null };
+export type NewTask = { title: string; description?: string; category: TaskCategory; dueDate: string | null; status?: TaskStatus; source?: string } & TaskLinks;
+
 export const tasksApi = {
   list: () => request<{ items: UserTask[]; stats: TaskStats }>('/tasks'),
-  create: (task: { title: string; description?: string; category: TaskCategory; dueDate: string | null; status?: TaskStatus; source?: string }) =>
-    request<UserTask>('/tasks', { method: 'POST', body: task }),
-  bulkCreate: (items: { title: string; description?: string; category: TaskCategory; dueDate?: string | null; source?: string }[]) =>
+  create: (task: NewTask) => request<UserTask>('/tasks', { method: 'POST', body: task }),
+  bulkCreate: (items: ({ title: string; description?: string; category: TaskCategory; dueDate?: string | null; source?: string } & TaskLinks)[]) =>
     request<{ created: UserTask[]; items: UserTask[]; stats: TaskStats }>('/tasks/bulk', { method: 'POST', body: { items } }),
-  update: (id: string, patch: Partial<{ title: string; description: string | null; category: TaskCategory; status: TaskStatus; dueDate: string | null }>) =>
+  update: (id: string, patch: Partial<{ title: string; description: string | null; category: TaskCategory; status: TaskStatus; dueDate: string | null } & TaskLinks>) =>
     request<UserTask>(`/tasks/${id}`, { method: 'PATCH', body: patch }),
   remove: (id: string) => request<{ success: boolean }>(`/tasks/${id}`, { method: 'DELETE' }),
   generate: (profile: ApplicantProfile) => request<{ created: UserTask[]; items: UserTask[]; stats: TaskStats }>('/tasks/generate', { method: 'POST', body: { profile } }),
@@ -440,6 +488,18 @@ export const portfolioApi = {
   remove: (id: string) => request<{ success: boolean }>(`/portfolio/${id}`, { method: 'DELETE' }),
   evaluate: (payload: { field?: PortfolioFieldId; universityIds?: string[]; profile?: ApplicantProfile | null; language: AppLanguage }) =>
     request<PortfolioEvaluation>('/portfolio/evaluate', { method: 'POST', body: { ...payload, uiState: getUiState() }, timeoutMs: 180_000 }),
+  /** Concrete feedback against the published criteria of the selected universities. */
+  feedback: (payload: { universityIds: string[]; profile?: ApplicantProfile | null; language: AppLanguage }) =>
+    request<PortfolioFeedback>('/portfolio/feedback', { method: 'POST', body: { ...payload, uiState: getUiState() }, timeoutMs: 150_000 }),
+};
+
+// ---------------------------------------------------------------------------
+// Planner (favourite olympiads, deadline statuses, own dates, essay draft)
+// ---------------------------------------------------------------------------
+
+export const plannerApi = {
+  get: () => request<{ planner: PlannerState | null; updatedAt: string | null }>('/planner'),
+  save: (planner: PlannerState) => request<{ planner: PlannerState; updatedAt: string }>('/planner', { method: 'PUT', body: { planner } }),
 };
 
 // ---------------------------------------------------------------------------

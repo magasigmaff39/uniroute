@@ -79,17 +79,17 @@ export async function sendMail({ to, subject, html, text }) {
 const shell = (title, body) => `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="background:#09090b;color:#fff;font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:40px 20px;">
   <div style="max-width:520px;margin:0 auto;background:#000;border:1px solid #27272a;border-radius:20px;padding:36px;">
-    <div style="font-size:20px;font-weight:900;letter-spacing:2px;margin-bottom:24px;border-bottom:1px solid #18181b;padding-bottom:20px;">ADMITROUTE AI
+    <div style="font-size:20px;font-weight:900;letter-spacing:2px;margin-bottom:24px;border-bottom:1px solid #18181b;padding-bottom:20px;">UNIROUTE AI
       <span style="font-size:11px;color:#a1a1aa;font-weight:500;margin-left:8px;">• НАВИГАТОР ПОСТУПЛЕНИЯ</span></div>
     <h1 style="font-size:18px;font-weight:700;margin:0 0 14px;">${title}</h1>
     ${body}
-    <div style="font-size:11px;color:#52525b;border-top:1px solid #18181b;padding-top:20px;margin-top:28px;">AdmitRoute AI © 2026 • Индивидуальная стратегия поступления</div>
+    <div style="font-size:11px;color:#52525b;border-top:1px solid #18181b;padding-top:20px;margin-top:28px;">UniRoute AI © 2026 • Индивидуальная стратегия поступления</div>
   </div></body></html>`;
 
 export function otpTemplate(name, code, ttlMinutes) {
   return shell(
     'Подтверждение регистрации',
-    `<p style="font-size:14px;line-height:1.6;color:#a1a1aa;">Здравствуйте, <strong style="color:#fff;">${escapeHtml(name)}</strong>!<br>Ваш 6-значный код для создания аккаунта AdmitRoute AI:</p>
+    `<p style="font-size:14px;line-height:1.6;color:#a1a1aa;">Здравствуйте, <strong style="color:#fff;">${escapeHtml(name)}</strong>!<br>Ваш 6-значный код для создания аккаунта UniRoute AI:</p>
      <div style="background:#09090b;border:1px solid #3f3f46;border-radius:14px;padding:24px;text-align:center;margin:26px 0;">
        <div style="font-size:38px;font-weight:800;letter-spacing:10px;font-family:Courier New,monospace;">${code}</div></div>
      <p style="font-size:12px;color:#71717a;">Срок действия кода — <strong>${ttlMinutes} минут</strong>.</p>`,

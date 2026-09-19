@@ -29,6 +29,10 @@ export function toPublicTask(doc) {
     dueDate: doc.dueDate || null,
     completedAt: doc.completedAt || null,
     source: doc.source || undefined,
+    // Optional links: the university, planner deadline and olympiad a task belongs to.
+    universityId: doc.universityId || null,
+    deadlineKey: doc.deadlineKey || null,
+    olympiadId: doc.olympiadId || null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     timeliness: timelinessOf(doc),
@@ -48,7 +52,9 @@ export async function listTasks(userId) {
   return docs.map(toPublicTask);
 }
 
-export async function createTask(userId, { title, description, category, dueDate, status, source }) {
+const linkId = (v) => (v ? String(v).slice(0, 120) : null);
+
+export async function createTask(userId, { title, description, category, dueDate, status, source, universityId, deadlineKey, olympiadId }) {
   const store = await getStore();
   const id = `task_${crypto.randomUUID()}`;
   const now = nowIso();
@@ -61,6 +67,9 @@ export async function createTask(userId, { title, description, category, dueDate
     dueDate: dueDate || null,
     completedAt: status === 'done' ? now : null,
     source: source || null,
+    universityId: linkId(universityId),
+    deadlineKey: linkId(deadlineKey),
+    olympiadId: linkId(olympiadId),
     createdAt: now,
     updatedAt: now,
   });
@@ -77,6 +86,9 @@ export async function updateTask(userId, taskId, patch) {
     category: patch.category ?? doc.category,
     status: patch.status ?? doc.status,
     dueDate: patch.dueDate === undefined ? doc.dueDate : patch.dueDate,
+    universityId: patch.universityId === undefined ? doc.universityId || null : linkId(patch.universityId),
+    deadlineKey: patch.deadlineKey === undefined ? doc.deadlineKey || null : linkId(patch.deadlineKey),
+    olympiadId: patch.olympiadId === undefined ? doc.olympiadId || null : linkId(patch.olympiadId),
     updatedAt: nowIso(),
   };
   let completedAt = doc.completedAt || null;
@@ -138,7 +150,7 @@ export async function generateStarterTasks(userId, profile) {
     const u = UNIVERSITY_BY_ID.get(id);
     if (!u) continue;
     // Real due date parsed from the knowledge-base deadline string (no deadline for "rolling")
-    drafts.push({ title: `Подать заявку: ${u.shortName} (${u.regularDeadline})`, category: 'application', dueDate: parseRuDeadlineIso(u.regularDeadline), description: u.officialPortalUrl });
+    drafts.push({ title: `Подать заявку: ${u.shortName} (${u.regularDeadline})`, category: 'application', dueDate: parseRuDeadlineIso(u.regularDeadline), description: u.officialPortalUrl, universityId: u.id, deadlineKey: `${u.id}:app` });
   }
 
   const created = [];

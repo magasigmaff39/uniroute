@@ -19,6 +19,7 @@ import {
   findUserByEmail,
   deleteAccount,
   GRADES,
+  TARGET_TRACKS,
   LANGUAGES,
 } from '../services/auth.service.js';
 import { issueOtp, verifyOtp } from '../services/otp.service.js';
@@ -92,6 +93,7 @@ authRouter.post(
     const lastName = (b.lastName ?? '').toString().trim().slice(0, 60);
     const age = optionalNumber(b.age, 'age', { min: 10, max: 60, fallback: 16 });
     const grade = requireEnum(b.grade, 'grade', GRADES, 'grade_10');
+    const targetTrack = requireEnum(b.targetTrack, 'targetTrack', TARGET_TRACKS, 'all');
     const preferredLanguage = requireEnum(b.preferredLanguage, 'preferredLanguage', LANGUAGES, 'ru');
     const password = requireString(b.password, 'password', { min: 6, max: 128 });
 
@@ -99,7 +101,7 @@ authRouter.post(
     if (config.otp.required && !otpPassed) {
       return res.status(400).json({ error: 'Сначала подтвердите email кодом', code: 'OTP_REQUIRED' });
     }
-    const result = await registerUser({ firstName, lastName, email, age, grade, password, preferredLanguage, isEmailVerified: otpPassed, userAgent: req.headers['user-agent'] });
+    const result = await registerUser({ firstName, lastName, email, age, grade, targetTrack, password, preferredLanguage, isEmailVerified: otpPassed, userAgent: req.headers['user-agent'] });
     sessionResponse(res, { ...result, isNew: true }, 201, 'Аккаунт создан');
   }),
 );

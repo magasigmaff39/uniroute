@@ -2,7 +2,7 @@
 // localStorage only so the UI can render immediately after a reload.
 import { authApi, getToken, setToken, type UserAccount, type AuthResponse } from './api';
 import { googleIdToken, consumeRedirect, firebaseSignOut, isFirebaseConfigured } from './firebase';
-import type { AppLanguage, EducationGrade } from '../types';
+import type { AppLanguage, EducationGrade, TargetTrack } from '../types';
 
 export type { UserAccount };
 
@@ -39,6 +39,7 @@ export async function registerUser(data: {
   gmail: string;
   age: number;
   grade: EducationGrade;
+  targetTrack?: TargetTrack;
   password: string;
   preferredLanguage?: AppLanguage;
 }): Promise<UserAccount> {
@@ -48,6 +49,7 @@ export async function registerUser(data: {
     email: data.gmail.trim().toLowerCase(),
     age: data.age,
     grade: data.grade,
+    targetTrack: data.targetTrack,
     password: data.password,
     preferredLanguage: data.preferredLanguage,
   });

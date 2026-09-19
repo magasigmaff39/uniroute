@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { X, ListChecks, Plus, Loader2, Trash2, CheckCircle2, Circle, Clock, Sparkles, CalendarDays, AlertCircle } from 'lucide-react';
+import { X, ListChecks, ListPlus, Plus, Loader2, Trash2, CheckCircle2, Circle, Clock, CalendarDays, AlertCircle } from 'lucide-react';
 import type { ApplicantProfile, TaskCategory, TaskStatus, UserTask } from '../types';
 import { tasksApi, ApiError, type TaskStats } from '../lib/api';
 import { useI18n } from '../i18n/I18nContext';
@@ -114,85 +114,87 @@ export const TasksModal: React.FC<TasksModalProps> = ({ isOpen, onClose, isAuthe
 
   const timelinessBadge = (task: UserTask) => {
     const map: Record<UserTask['timeliness'], string> = {
-      done_on_time: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-      done_late: 'bg-amber-50 text-amber-800 border-amber-200',
-      overdue: 'bg-rose-50 text-rose-800 border-rose-200',
-      upcoming: 'bg-blue-50 text-blue-800 border-blue-200',
-      no_deadline: 'bg-slate-50 text-slate-600 border-slate-200',
+      done_on_time: 'ar-badge-green',
+      done_late: 'ar-badge-amber',
+      overdue: 'ar-badge-rose',
+      upcoming: 'ar-badge-blue',
+      no_deadline: '',
     };
-    return <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${map[task.timeliness]}`}>{t(`tasks.timeliness.${task.timeliness}`)}</span>;
+    return <span className={`ar-badge ${map[task.timeliness]}`}>{t(`tasks.timeliness.${task.timeliness}`)}</span>;
   };
 
   const StatusIcon = ({ status }: { status: TaskStatus }) =>
-    status === 'done' ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : status === 'in_progress' ? <Clock className="w-5 h-5 text-blue-600" /> : <Circle className="w-5 h-5 text-slate-300" />;
+    status === 'done' ? <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : status === 'in_progress' ? <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" /> : <Circle className="w-5 h-5 text-slate-300 dark:text-zinc-600" />;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white w-full max-w-3xl rounded-2xl border border-slate-200 shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/40 backdrop-blur-[2px] animate-fadeIn" role="dialog" aria-modal="true" aria-labelledby="tasks-modal-title">
+      <div className="w-full max-w-3xl max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] flex flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-raised)] shadow-[var(--shadow-overlay)] animate-popIn">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
-              <ListChecks className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">{t('tasks.title')}</h3>
-              <p className="text-[11px] text-slate-500">{t('tasks.subtitle')}</p>
+        <div className="px-4 sm:px-6 py-4 border-b border-[var(--line)] flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="ar-icon-tile">
+              <ListChecks className="w-5 h-5" />
+            </span>
+            <div className="min-w-0">
+              <h3 id="tasks-modal-title" className="text-lg font-semibold text-slate-900 dark:text-white leading-tight sm:truncate">{t('tasks.title')}</h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 truncate">{t('tasks.subtitle')}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100">
-            <X className="w-4 h-4" />
+          <button type="button" onClick={onClose} className="ar-btn ar-btn-icon shrink-0" aria-label={t('common.close')} title={t('common.close')}>
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {!isAuthenticated ? (
-          <div className="p-10 text-center space-y-4">
-            <AlertCircle className="w-8 h-8 text-slate-400 mx-auto" />
-            <p className="text-sm text-slate-600">{t('common.loginRequired')}</p>
-            <button onClick={() => { onClose(); onOpenAuth(); }} className="ar-btn ar-btn-primary px-6 py-2.5">
+          <div className="px-6 py-12 text-center flex flex-col items-center gap-4">
+            <span className="ar-icon-tile w-12 h-12 rounded-2xl">
+              <AlertCircle className="w-6 h-6" />
+            </span>
+            <p className="text-sm text-slate-600 dark:text-zinc-400 leading-relaxed max-w-sm">{t('common.loginRequired')}</p>
+            <button type="button" onClick={() => { onClose(); onOpenAuth(); }} className="ar-btn ar-btn-primary">
               {t('header.loginRegister')}
             </button>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5">
             {/* Stats */}
             {stats && (
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {[
-                  ['total', stats.total, 'text-slate-900'],
-                  ['done', stats.done, 'text-emerald-700'],
-                  ['onTime', stats.doneOnTime, 'text-emerald-700'],
-                  ['late', stats.doneLate, 'text-amber-700'],
-                  ['overdue', stats.overdue, 'text-rose-700'],
-                  ['onTimeRate', stats.onTimeRate === null ? '—' : `${stats.onTimeRate}%`, 'text-blue-700'],
+                  ['total', stats.total, 'text-slate-900 dark:text-white'],
+                  ['done', stats.done, 'text-emerald-700 dark:text-emerald-300'],
+                  ['onTime', stats.doneOnTime, 'text-emerald-700 dark:text-emerald-300'],
+                  ['late', stats.doneLate, 'text-amber-700 dark:text-amber-300'],
+                  ['overdue', stats.overdue, 'text-rose-700 dark:text-rose-300'],
+                  ['onTimeRate', stats.onTimeRate === null ? '—' : `${stats.onTimeRate}%`, 'text-blue-700 dark:text-blue-300'],
                 ].map(([key, value, cls]) => (
-                  <div key={key as string} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                    <div className={`text-lg font-bold font-mono ${cls}`}>{value as React.ReactNode}</div>
-                    <div className="text-[10px] text-slate-500 font-medium">{t(`tasks.stats.${key}`)}</div>
+                  <div key={key as string} className="min-w-0 px-2 py-3 rounded-xl bg-slate-50 dark:bg-zinc-900/60 border border-[var(--line)] text-center">
+                    <div className={`text-lg font-semibold tabular-nums ${cls}`}>{value as React.ReactNode}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium leading-snug">{t(`tasks.stats.${key}`)}</div>
                   </div>
                 ))}
               </div>
             )}
 
             {/* New task */}
-            <form onSubmit={handleCreate} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-[1fr_140px_150px_auto] gap-2 items-end">
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">{t('tasks.new')}</label>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tasks.titlePlaceholder')} className="ar-input w-full text-xs" />
+            <form onSubmit={handleCreate} className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900/60 border border-[var(--line)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[minmax(0,1fr)_9rem_10rem_auto] gap-3 items-end">
+              <div className="min-w-0 sm:col-span-2 md:col-span-1">
+                <label className="ar-label" htmlFor="tasks-modal-new">{t('tasks.new')}</label>
+                <input id="tasks-modal-new" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tasks.titlePlaceholder')} className="ar-input" />
               </div>
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">{t('tasks.category')}</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value as TaskCategory)} className="ar-input w-full text-xs">
+              <div className="min-w-0">
+                <label className="ar-label" htmlFor="tasks-modal-cat">{t('tasks.category')}</label>
+                <select id="tasks-modal-cat" value={category} onChange={(e) => setCategory(e.target.value as TaskCategory)} className="ar-input">
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>{t(`tasks.cat.${c}`)}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">{t('tasks.dueDate')}</label>
-                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="ar-input w-full text-xs" />
+              <div className="min-w-0">
+                <label className="ar-label" htmlFor="tasks-modal-due">{t('tasks.dueDate')}</label>
+                <input id="tasks-modal-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="ar-input" />
               </div>
-              <button type="submit" disabled={saving || !title.trim()} className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold disabled:opacity-50">
+              <button type="submit" disabled={saving || !title.trim()} aria-busy={saving} className="ar-btn ar-btn-primary min-h-11 sm:col-span-2 md:col-span-1">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 {t('common.add')}
               </button>
@@ -200,44 +202,67 @@ export const TasksModal: React.FC<TasksModalProps> = ({ isOpen, onClose, isAuthe
 
             {/* Filters + generate */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-xs font-medium">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {(['all', 'open', 'done'] as const).map((f) => (
-                  <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-xl transition ${filter === f ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                  <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f} className="ar-chip">
                     {t(`tasks.filter.${f}`)}
                   </button>
                 ))}
               </div>
-              <button onClick={generate} disabled={generating} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 disabled:opacity-50">
-                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <button type="button" onClick={generate} disabled={generating} aria-busy={generating} className="ar-btn ar-btn-secondary ar-btn-sm min-h-9">
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListPlus className="w-4 h-4 text-blue-600 dark:text-blue-300" />}
                 {t('tasks.generate')}
               </button>
             </div>
 
             {/* List */}
-            {error && <p className="text-xs text-rose-600">{error}</p>}
-            {loading && <div className="text-xs text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}</div>}
-            {!loading && visible.length === 0 && <p className="text-xs text-slate-500 text-center py-6">{t('tasks.empty')}</p>}
+            {error && (
+              <div className="ar-notice ar-notice-error" role="alert">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> <span className="min-w-0">{error}</span>
+              </div>
+            )}
+            {loading && (
+              <div className="text-sm text-slate-500 dark:text-zinc-400 flex items-center gap-2" aria-live="polite">
+                <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
+              </div>
+            )}
+            {!loading && visible.length === 0 && <p className="text-sm text-slate-500 dark:text-zinc-400 text-center py-6">{t('tasks.empty')}</p>}
             <div className="space-y-2">
               {visible.map((task) => (
-                <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl border transition ${task.status === 'done' ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-                  <button onClick={() => cycleStatus(task)} className="mt-0.5 shrink-0" title={t(`tasks.status.${task.status}`)}>
+                <div
+                  key={task.id}
+                  className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${task.status === 'done' ? 'bg-slate-50 dark:bg-zinc-900/40 border-[var(--line)]' : 'bg-[var(--surface-raised)] border-[var(--line)] hover:border-[var(--line-strong)]'}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => cycleStatus(task)}
+                    className="shrink-0 w-9 h-9 -mt-2 -ml-1.5 -mr-1 flex items-center justify-center rounded-xl transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    title={t(`tasks.status.${task.status}`)}
+                    aria-label={t(`tasks.status.${task.status}`)}
+                  >
                     <StatusIcon status={task.status} />
                   </button>
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-medium ${task.status === 'done' ? 'line-through text-slate-400' : 'text-slate-900'}`}>{task.title}</div>
-                    {task.description && <div className="text-[11px] text-slate-500 truncate">{task.description}</div>}
+                    <div className={`text-sm font-medium break-words ${task.status === 'done' ? 'line-through text-slate-400 dark:text-zinc-500' : 'text-slate-900 dark:text-white'}`}>{task.title}</div>
+                    {task.description && <div className="text-xs text-slate-500 dark:text-zinc-400 truncate mt-0.5">{task.description}</div>}
                     <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium border border-slate-200">{t(`tasks.cat.${task.category}`)}</span>
+                      <span className="ar-badge">{t(`tasks.cat.${task.category}`)}</span>
                       {timelinessBadge(task)}
                       {task.dueDate && (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-500">
-                          <CalendarDays className="w-3 h-3" /> {task.dueDate}
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-zinc-400">
+                          <CalendarDays className="w-3.5 h-3.5" /> {task.dueDate}
                         </span>
                       )}
-                      {task.completedAt && <span className="text-[10px] text-slate-400">✓ {task.completedAt.slice(0, 10)}</span>}
+                      {task.completedAt && <span className="text-xs text-slate-500 dark:text-zinc-400">✓ {task.completedAt.slice(0, 10)}</span>}
                     </div>
                   </div>
-                  <button onClick={() => remove(task)} className="p-1.5 text-slate-300 hover:text-rose-600 rounded-lg hover:bg-rose-50" title={t('common.delete')}>
+                  <button
+                    type="button"
+                    onClick={() => remove(task)}
+                    className="ar-btn ar-btn-icon w-9 h-9 -mt-1.5 -mr-1.5 shrink-0 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-300 dark:hover:bg-rose-500/10"
+                    title={t('common.delete')}
+                    aria-label={t('common.delete')}
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

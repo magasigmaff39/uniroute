@@ -39,8 +39,13 @@ export function estimateChance(profile, uni, overrides = {}) {
 
   // IELTS
   const ielts = overrides.ielts ?? (profile.hasIelts ? profile.ieltsScore : null);
+  const isLocalSchoolOrCollege = uni.region === 'kazakhstan' && (uni.category === 'school' || uni.category === 'college');
   if (ielts == null) {
-    push(factors, 'IELTS', -18, `IELTS ещё не сдан (требуется ${uni.minIelts}+)`);
+    if (isLocalSchoolOrCollege) {
+      push(factors, 'IELTS', -2, `Языковой сертификат опционален (отбор по внутреннему тестированию и табелю)`);
+    } else {
+      push(factors, 'IELTS', -18, `IELTS ещё не сдан (требуется ${uni.minIelts}+)`);
+    }
   } else {
     const gap = ielts - uni.minIelts;
     if (gap >= 1) push(factors, 'IELTS', +10, `IELTS ${ielts} — сильный запас над порогом ${uni.minIelts}`);

@@ -78,7 +78,7 @@ export const config = {
     pass: (env.GMAIL_APP_PASSWORD || env.SMTP_PASS || '').replace(/\s+/g, ''),
     host: env.SMTP_HOST || 'smtp.gmail.com',
     port: num(env.SMTP_PORT, 587),
-    from: env.MAIL_FROM || 'AdmitRoute AI',
+    from: env.MAIL_FROM || 'UniRoute',
   },
 
   /** Gemini (Google AI Studio) — primary model provider. Newer models are tried first, older ones are fallbacks. */

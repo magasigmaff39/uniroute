@@ -41,8 +41,28 @@ export function describeProfile(profile) {
     `Олимпиады: уровень «${p.olympiadLevel}»${p.olympiadDetails ? ` (${p.olympiadDetails})` : ''}. Лидерство: ${(p.leadershipActivities || []).join('; ') || '—'}. Активности: ${(p.extracurriculars || []).join(', ') || '—'}.`,
     `Цели: направления — ${(p.targetMajors || []).map((m) => MAJOR_LABELS[m] || m).join(', ') || '—'}; регионы — ${(p.targetRegions || []).map((r) => REGION_LABELS[r] || r).join(', ') || '—'}; бюджет — ${BUDGET_LABELS[p.budgetTier] || p.budgetTier}; год поступления ${p.targetYear}; стиль наставника: ${p.advisorTone}.`,
   ];
-  if (p.targetUniversityIds?.length) parts.push(`Целевые университеты: ${p.targetUniversityIds.map((id) => UNIVERSITY_BY_ID.get(id)?.name || id).join(', ')}.`);
-  if (p.careerGoal) parts.push(`Карьерная цель: ${p.careerGoal}.`);
+  if (p.birthDate || p.country || p.city || p.schoolName) {
+    parts.push(
+      [p.birthDate && `Дата рождения: ${p.birthDate}`, (p.city || p.country) && `живёт: ${[p.city, p.country].filter(Boolean).join(', ')}`, p.schoolName && `школа: ${p.schoolName}`].filter(Boolean).join('; ') + '.',
+    );
+  }
+  if (p.englishLevel) parts.push(`Уровень английского (самооценка): ${p.englishLevel}.`);
+  if (p.otherExams?.length) parts.push(`Другие экзамены: ${p.otherExams.map((e) => `${e.name}${e.score ? ` ${e.score}` : ''}`).join(', ')}.`);
+  if (p.interests?.length) parts.push(`Интересы: ${p.interests.join(', ')}.`);
+  if (p.skills?.length) parts.push(`Навыки: ${p.skills.join(', ')}.`);
+  if (p.targetUniversityIds?.length) {
+    parts.push(
+      `Целевые университеты: ${p.targetUniversityIds
+        .map((id) => {
+          const plan = p.universityPlans?.[id];
+          const extra = [plan?.program, plan?.year].filter(Boolean).join(', ');
+          return `${UNIVERSITY_BY_ID.get(id)?.name || id}${extra ? ` (${extra})` : ''}`;
+        })
+        .join('; ')}.`,
+    );
+  }
+  if (p.careerGoal) parts.push(`Желаемая профессия: ${p.careerGoal}.`);
+  if (p.careerPlans) parts.push(`Карьерные планы: ${p.careerPlans}.`);
   if (p.allergies) parts.push(`Аллергии: ${p.allergies}.`);
   if (p.healthNotes) parts.push(`Здоровье: ${p.healthNotes}.`);
   if (p.dietaryNeeds) parts.push(`Питание: ${p.dietaryNeeds}.`);
@@ -155,7 +175,10 @@ export function renderContext(ctx, { detail = 'full', language = 'ru' } = {}) {
   if (ctx.uiState) {
     const u = ctx.uiState;
     const bits = [];
-    if (u.step) bits.push(`Пользователь сейчас на шаге ${u.step} (${STEP_NAMES[u.step] || ''})`);
+    if (u.section) {
+      const [section, view] = String(u.section).split(':');
+      bits.push(`Пользователь сейчас в разделе «${SECTION_NAMES[section] || section}»${view ? ` (${VIEW_NAMES[view] || view})` : ''}`);
+    } else if (u.step) bits.push(`Пользователь сейчас на шаге ${u.step} (${STEP_NAMES[u.step] || ''})`);
     if (u.selectedForCompare?.length) bits.push(`В сравнении: ${u.selectedForCompare.map((id) => UNIVERSITY_BY_ID.get(id)?.name || id).join(', ')}`);
     if (u.viewingUniversityId) bits.push(`Открыта карточка: ${UNIVERSITY_BY_ID.get(u.viewingUniversityId)?.name || u.viewingUniversityId}`);
     if (u.roadmapDone) bits.push(`Прогресс маршрута: ${u.roadmapDone}`);
@@ -167,6 +190,23 @@ export function renderContext(ctx, { detail = 'full', language = 'ru' } = {}) {
 }
 
 const STEP_NAMES = { 1: 'вход', 2: 'анкета профиля', 3: 'диагностика', 4: 'рекомендации вузов', 5: 'сравнение', 6: 'маршрут', 7: 'первоочередной шаг' };
+const SECTION_NAMES = {
+  home: 'Главная',
+  cabinet: 'Личный кабинет',
+  tests: 'Мои тесты',
+  results: 'Мои результаты',
+  achievements: 'Мои достижения',
+  universities: 'Мои университеты',
+  profile: 'Мой профиль',
+  documents: 'Документы',
+  analysis: 'Анализ поступления',
+  grants: 'Гранты и финансирование',
+  deadlines: 'Дедлайны',
+  tasks: 'Задачи',
+  olympiads: 'Олимпиады',
+  portfolio: 'Портфолио',
+};
+const VIEW_NAMES = { quick: 'экспресс-тест', detailed: 'подробный тест' };
 
 /** Chance estimates for the applicant's target / compared universities — hard numbers for prompts. */
 export function chanceTable(profile, ids = []) {

@@ -3,7 +3,7 @@
 // platform knows about the applicant: profile, portfolio, tasks, documents, previous analyses, screen state.
 import crypto from 'node:crypto';
 import { UNIVERSITY_DATABASE, UNIVERSITY_BY_ID } from '../../shared/data/universities/index.js';
-import { UNIVERSAL_LIKES, UNIVERSAL_DISLIKES, COMMON_INCONVENIENCES } from '../../shared/data/admissionsKnowledge.js';
+import { UNIVERSAL_LIKES, UNIVERSAL_DISLIKES, COMMON_INCONVENIENCES, DOCUMENT_CHECKLIST } from '../../shared/data/admissionsKnowledge.js';
 import { OLYMPIAD_DATABASE, OLYMPIAD_BY_ID } from '../../shared/data/olympiads.js';
 import { FIELD_RUBRICS, PORTFOLIO_CRITERIA, fieldForMajors } from '../../shared/data/portfolioRubrics.js';
 import { estimateWithProjections } from '../../shared/logic/chance.js';
@@ -17,6 +17,8 @@ import { getStore, nowIso, cacheGet, cacheSet } from '../db/store.js';
 import { buildUserContext, renderContext, describeProfile, chanceTable } from './context.service.js';
 import { scorePortfolio, tierForScore, scoreItem, recommendationForScore, saveItemRatings } from './portfolio.service.js';
 import { recommendOlympiads } from './olympiad.service.js';
+import { matchPortfolio, rankRelevantItems, developmentAreas, universitySignals } from '../../shared/logic/portfolioMatch.js';
+import { parseRuDeadlineIso, daysLeft } from '../../shared/logic/dates.js';
 import { config } from '../config.js';
 
 export { describeProfile };
@@ -57,8 +59,9 @@ async function persistAnalysis(userId, kind, input, output) {
 /** Short fact sheet (~120 tokens). */
 export function summarizeUniversityCompact(u) {
   const env = u.environment;
+  const categoryLabel = u.category === 'school' ? 'Школа/лицей' : u.category === 'college' ? 'Колледж' : 'Университет';
   return [
-    `- ${u.name} [${u.id}] — ${u.city}, ${u.country}. Приём ${u.acceptanceRate}; GPA ${u.minGpa}, IELTS ${u.minIelts}${u.minSat ? `, SAT ${u.minSat}` : ''}${u.minUnt ? `, ЕНТ ${u.minUnt}` : ''}; тесты: ${u.admissions?.testPolicy || '—'}.`,
+    `- [${categoryLabel}] ${u.name} [${u.id}] — ${u.city}, ${u.country}${u.gradeLevel ? ` (${u.gradeLevel})` : ''}. Приём ${u.acceptanceRate}; GPA ${u.minGpa}, IELTS ${u.minIelts}${u.minSat ? `, SAT ${u.minSat}` : ''}${u.minUnt ? `, ЕНТ ${u.minUnt}` : ''}; тесты: ${u.admissions?.testPolicy || '—'}.`,
     `  Финансы: $${u.tuitionUSDPerYear}/год; ${u.scholarshipName}. Дедлайн: ${u.regularDeadline}. Сильное: ${u.flagshipPrograms.slice(0, 3).join(', ')}.`,
     `  Район ${u.campus?.neighborhoodSafety ?? '—'}/10. ${env ? `Климат: ${env.climate.split(':')[0]}; аллергены: ${env.allergyNotes.split('.')[0]}.` : ''} Ценят: ${u.admissions?.likes.slice(0, 2).join('; ') || '—'}. Портал: ${u.officialPortalUrl}`,
   ].join('\n');
@@ -66,9 +69,10 @@ export function summarizeUniversityCompact(u) {
 
 /** Full fact sheet the model can cite without hallucinating. */
 export function summarizeUniversity(u, { full = false } = {}) {
+  const categoryLabel = u.category === 'school' ? 'Школа / Лицей' : u.category === 'college' ? 'Колледж' : 'Университет';
   const lines = [
-    `### ${u.name} (${u.shortName}) — ${u.city}, ${u.country} [id: ${u.id}]`,
-    `Рейтинг: ${u.worldRank || '—'}; ${u.nationalRank || ''}. Тип: ${u.type || '—'}, основан ${u.founded || '—'}.`,
+    `### [${categoryLabel}] ${u.name} (${u.shortName}) — ${u.city}, ${u.country} [id: ${u.id}]`,
+    `Категория: ${categoryLabel}${u.gradeLevel ? ` (${u.gradeLevel})` : ''}. Рейтинг: ${u.worldRank || '—'}; ${u.nationalRank || ''}. Тип: ${u.type || '—'}, основан ${u.founded || '—'}.`,
     `Приём: ${u.acceptanceRate}. Пороги: GPA ${u.minGpa}/4.0, IELTS ${u.minIelts}${u.minSat ? `, SAT ${u.minSat}` : ''}${u.minUnt ? `, ЕНТ ${u.minUnt}` : ''}. Политика тестов: ${u.admissions?.testPolicy || '—'}${u.admissions?.interview ? ', есть интервью' : ''}.`,
     `Стоимость: обучение $${u.tuitionUSDPerYear}/год, проживание $${u.livingCostUSDPerYear}/год. Финансирование: ${u.scholarshipName} — ${u.scholarshipDescription}`,
     `Дедлайны: ${u.earlyDeadline ? `ранний ${u.earlyDeadline}; ` : ''}основной ${u.regularDeadline}. Портал: ${u.officialPortalUrl}`,
@@ -159,6 +163,73 @@ export function knowledgeBase({ focusIds = [], includeAllUniversities = true, in
 // ---------------------------------------------------------------------------
 // Persona
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Express verdict after the 7-question test (fast tier, ~3 sentences)
+// ---------------------------------------------------------------------------
+
+/**
+ * Preliminary AI conclusion for the express test. The profile holds band estimates, not exact scores,
+ * so the prompt is compact, the model tier is `fast` and the answer is explicitly hedged; the detailed
+ * questionnaire → `analyzeApplicant` is the precise version.
+ */
+export async function quickVerdict({ userId, profile, language = 'ru' }) {
+  const p = profile;
+  const picks = pickTargetUniversities(p, UNIVERSITY_DATABASE, { limit: 3 }).map((x) => ({
+    id: x.id,
+    name: x.name,
+    shortName: x.shortName,
+    probability: x.probability,
+    tier: x.tier,
+    reasons: x.reasons,
+  }));
+  const base = { picks, confidence: 'low' };
+  if (!isLlmConfigured()) return { ...base, verdict: '', focus: [], model: 'offline-rules' };
+
+  const system = `${persona(language)}
+Это ЭКСПРЕСС-ОЦЕНКА: абитуриент ответил на 7 быстрых вопросов, баллы указаны диапазонами, портфолио и предпочтения ещё не заполнены. Дай предварительный вывод — честный, конкретный, без воды — и подчеркни, что точный прогноз появится после подробной анкеты. Верни СТРОГО JSON (все строки — на ${langName(language)} языке):
+{
+  "verdict": string,      // 3–4 предложения: где абитуриент сейчас, какие вузы из подбора реалистичны, главный разрыв
+  "focus": string[],      // ровно 3 коротких пункта (до 12 слов): что усилить в первую очередь
+  "confidence": "low"|"medium"
+}`;
+  const user = `# ОТВЕТЫ ЭКСПРЕСС-ТЕСТА (оценочно)
+${describeProfile(p)}
+
+# ПРЕДВАРИТЕЛЬНЫЙ ПОДБОР СИСТЕМЫ
+${picks.map((x) => `- ${x.name} — ${x.tier}, шанс ~${x.probability}%; ${x.reasons.slice(0, 2).join('; ')}`).join('\n') || '—'}
+
+# КРАТКО О ВУЗАХ ПОДБОРА
+${picks.map((x) => UNIVERSITY_BY_ID.get(x.id)).filter(Boolean).map(summarizeUniversityCompact).join('\n')}`;
+
+  let data = null;
+  let model = 'offline-rules';
+  try {
+    const res = await completeJson({
+      system,
+      messages: [{ role: 'user', content: user }],
+      tier: 'fast',
+      maxTokens: 900,
+      temperature: 0.4,
+      timeoutMs: 35_000,
+      fallback: { system, messages: [{ role: 'user', content: `${describeProfile(p)}\n\nПодбор: ${picks.map((x) => `${x.shortName} (${x.tier}, ~${x.probability}%)`).join(', ')}` }] },
+    });
+    data = res.data;
+    model = `${res.provider}:${res.model}`;
+  } catch (err) {
+    console.warn('[ai] quickVerdict failed:', err.message);
+  }
+  if (!data) return { ...base, verdict: '', focus: [], model };
+  const output = {
+    ...base,
+    verdict: String(data.verdict || '').trim(),
+    focus: Array.isArray(data.focus) ? data.focus.map((x) => String(x).trim()).filter(Boolean).slice(0, 3) : [],
+    confidence: data.confidence === 'medium' ? 'medium' : 'low',
+    model,
+  };
+  await persistAnalysis(userId, 'quick_verdict', { language }, output);
+  return output;
+}
 
 // ---------------------------------------------------------------------------
 // Deep applicant analysis → ranked universities (JSON)
@@ -349,13 +420,16 @@ ${knowledgeBase({ includeAllUniversities: false, includeOlympiads: false })}`;
 
   const fallbackPrompt = {
     system,
-    messages: [{ role: 'user', content: `${describeProfile(p)}\n\nПортфолио:\n${renderContext({ ...ctx, tasks: [], checklist: [], analyses: [], uiState: null }, { detail: 'compact' }).slice(0, 2500)}\n\nРасчёт: ${computed.total}/100, пробелы ${computed.gaps.join(', ')}.\nЦели: ${targets.map((id) => UNIVERSITY_BY_ID.get(id).name).join(', ')}` }],
+    // The compact prompt must carry the entry ids too, or the fallback model cannot return per-entry verdicts.
+    messages: [{ role: 'user', content: `${describeProfile(p)}\n\nПортфолио:\n${renderContext({ ...ctx, tasks: [], checklist: [], analyses: [], uiState: null }, { detail: 'compact' }).slice(0, 2500)}\n\nЗаписи (id → название · расчёт/10): ${itemRatings.map((r) => `${r.id} → «${r.title}» · ${r.score}`).join('; ') || 'нет'}\n\nРасчёт: ${computed.total}/100, пробелы ${computed.gaps.join(', ')}.\nЦели: ${targets.map((id) => UNIVERSITY_BY_ID.get(id).name).join(', ')}` }],
   };
 
   let data = null;
   let model = 'offline-rules';
   try {
-    const res = await completeJson({ system, messages: [{ role: 'user', content: user }], tier: 'deep', maxTokens: 16000, temperature: 0.35, fallback: fallbackPrompt });
+    // Structured output does not need deep reasoning (thinking tokens share the output budget on Gemini 3);
+    // a long JSON needs output room and time instead.
+    const res = await completeJson({ system, messages: [{ role: 'user', content: user }], tier: 'smart', maxTokens: 12000, temperature: 0.35, timeoutMs: 150_000, fallback: fallbackPrompt });
     data = res.data;
     model = `${res.provider}:${res.model}`;
     if (res.finishReason === 'MAX_TOKENS') console.warn('[ai] evaluatePortfolio: answer hit the token limit — some sections may be missing');
@@ -372,7 +446,9 @@ ${knowledgeBase({ includeAllUniversities: false, includeOlympiads: false })}`;
   const evaluatedAt = nowIso();
   const aiItems = Array.isArray(data.items) ? data.items : [];
   const items = itemRatings.map((r) => {
-    const ai = aiItems.find((x) => x && String(x.id) === r.id);
+    // Match by id, or by title when a model echoes titles instead of ids.
+    const norm = (v) => String(v || '').trim().toLowerCase();
+    const ai = aiItems.find((x) => x && String(x.id) === r.id) || aiItems.find((x) => x && (norm(x.title) === norm(r.title) || norm(x.id) === norm(r.title)));
     const raw = Number(ai?.score);
     const score = Number.isFinite(raw) ? Math.max(1, Math.min(10, Math.max(r.score - 2, Math.min(r.score + 2, Math.round(raw))))) : r.score;
     const recommendation = ['highlight', 'keep', 'drop'].includes(ai?.recommendation) ? ai.recommendation : recommendationForScore(score);
@@ -465,6 +541,428 @@ ${knowledgeBase({ includeAllUniversities: false, includeOlympiads: false })}`;
     model,
   };
   await persistAnalysis(userId, 'comparison', { universityIds: ids, language }, output);
+  return output;
+}
+
+// ---------------------------------------------------------------------------
+// Differences between compared universities — explained, never ranked (JSON)
+// ---------------------------------------------------------------------------
+
+const COMPARE_DIMENSIONS = ['requirements', 'deadlines', 'cost', 'scholarships', 'exams', 'portfolio', 'profileFit'];
+const SIGNAL_TITLES = {
+  olympiads: 'олимпиады',
+  research: 'исследования',
+  projects: 'проекты',
+  competitions: 'конкурсы и хакатоны',
+  leadership: 'лидерство',
+  community: 'вклад в сообщество',
+  creative: 'творческие работы',
+  certificates: 'курсы и сертификаты',
+  extracurricular: 'внеучебная активность',
+};
+const STATUS_RU = { met: 'закрыто', partial: 'частично', missing: 'не хватает', unknown: 'нет данных' };
+const DOC_TITLE_RU = Object.fromEntries(DOCUMENT_CHECKLIST.map((d) => [d.kind, d.title]));
+const AID_RU = { state_grant: 'государственный грант', merit: 'стипендия за достижения', need_blind: 'need-blind (по потребности, без учёта при отборе)', need_based: 'по финансовой потребности', bilateral: 'межгосударственная квота' };
+const usd = (n) => `$${Number(n || 0).toLocaleString('en-US')}`;
+
+function checkLabel(c) {
+  if (c.id === 'gpa') return `GPA ≥ ${c.min} (у абитуриента ${c.value ?? 'не указан'})`;
+  if (c.id === 'ielts') return `IELTS ≥ ${c.min} (у абитуриента ${c.value ?? 'нет'})`;
+  if (c.id === 'sat') return `SAT ≥ ${c.min} (у абитуриента ${c.value ?? 'нет'})`;
+  if (c.id === 'unt') return `ЕНТ ≥ ${c.min} (у абитуриента ${c.value ?? 'нет'})`;
+  if (c.id === 'major') return 'Программа по выбранному направлению';
+  if (c.id === 'interview') return 'Интервью';
+  if (c.group === 'portfolio') return `Портфолио: ${SIGNAL_TITLES[c.signal] || c.signal}`;
+  if (c.group === 'documents') return `Документ: ${DOC_TITLE_RU[c.docKind] || c.docKind}`;
+  return c.id;
+}
+
+function describeMatch(m) {
+  return m.checks
+    .map((c) => `- ${checkLabel(c)}: ${STATUS_RU[c.status]}${c.evidence.length ? ` (записи: ${c.evidence.map((e) => `«${e.title}»`).join(', ')})` : ''}${c.source ? ` — опубликовано вузом: «${c.source}»` : ''}`)
+    .join('\n');
+}
+
+function deadlineFact(text) {
+  if (!text) return null;
+  const iso = parseRuDeadlineIso(text);
+  const left = daysLeft(iso);
+  return `${text}${iso ? ` [${left >= 0 ? `через ${left} дн.` : `прошёл ${-left} дн. назад`}]` : ''}`;
+}
+
+/** Everything the comparison is allowed to cite about one university, including the fit to this applicant. */
+function universityFactSheet(u, match) {
+  const total = u.tuitionUSDPerYear + u.livingCostUSDPerYear;
+  const signals = universitySignals(u);
+  return [
+    `### ${u.shortName} — ${u.name} [id: ${u.id}], ${u.city}, ${u.country}`,
+    `Сроки: ${u.earlyDeadline ? `ранний раунд ${deadlineFact(u.earlyDeadline)}; ` : ''}основной ${deadlineFact(u.regularDeadline)}.`,
+    `Стоимость в год: обучение ${usd(u.tuitionUSDPerYear)}, проживание ${usd(u.livingCostUSDPerYear)}, всего ≈ ${usd(total)}.`,
+    `Финансирование: ${u.scholarshipName} — ${AID_RU[u.financialAidType] || u.financialAidType}; полное покрытие возможно: ${u.hasFullGrantOrScholarship ? 'да' : 'нет'}. ${u.scholarshipDescription}`,
+    `Экзамены: ${u.minIelts ? `IELTS ${u.minIelts}+` : 'IELTS не требуется'}${u.minSat ? `; SAT ${u.minSat}+` : ''}${u.minUnt ? `; ЕНТ ${u.minUnt}+` : ''}; политика тестов: ${u.admissions?.testPolicy || '—'}; интервью: ${u.admissions?.interview ? 'да' : 'нет'}. Приём: ${u.acceptanceRate}.`,
+    `Опубликованные требования: ${(u.admissionRequirements || []).join('; ') || '—'}.`,
+    `Документы: ${(u.requiredDocuments || []).map((k) => DOC_TITLE_RU[k] || k).join(', ') || '—'}.`,
+    `Портфолио — что вуз публично отмечает: ${signals.length ? signals.map((s) => SIGNAL_TITLES[s.id]).join(', ') : 'отдельных требований не публикует'}. Ценят: ${(u.admissions?.likes || []).join('; ') || '—'}.`,
+    match ? `Соответствие профилю абитуриента (расчёт системы по опубликованным критериям, не прогноз решения комиссии): закрыто ${match.met}, частично ${match.partial}, не хватает ${match.missing}.\n${describeMatch(match)}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** Fact-only fallback: the same dimensions, written from the knowledge base without a model. */
+function offlineDifferences(unis, matches) {
+  const byTotal = [...unis].sort((a, b) => a.tuitionUSDPerYear + a.livingCostUSDPerYear - (b.tuitionUSDPerYear + b.livingCostUSDPerYear));
+  const byDeadline = [...unis].map((u) => ({ u, iso: parseRuDeadlineIso(u.earlyDeadline) || parseRuDeadlineIso(u.regularDeadline) })).filter((x) => x.iso).sort((a, b) => (a.iso < b.iso ? -1 : 1));
+  const matchOf = (id) => matches.find((m) => m.universityId === id);
+  const note = (fn) => unis.map((u) => ({ id: u.id, text: fn(u) }));
+  const dims = [
+    { key: 'requirements', summary: 'Опубликованные требования различаются по набору экзаменов, документов и дополнительных этапов.', notes: note((u) => (u.admissionRequirements || []).slice(0, 2).join('; ') || 'Требования не опубликованы в базе'), consider: 'Сверьте список требований с тем, что у вас уже есть.' },
+    {
+      key: 'deadlines',
+      summary: byDeadline.length ? `Первый срок — у ${byDeadline[0].u.shortName}, последний — у ${byDeadline[byDeadline.length - 1].u.shortName}.` : 'Точные даты в базе не указаны.',
+      notes: note((u) => [u.earlyDeadline && `ранний: ${deadlineFact(u.earlyDeadline)}`, `основной: ${deadlineFact(u.regularDeadline)}`].filter(Boolean).join('; ')),
+      consider: 'Ранние сроки определяют, что нужно подготовить в первую очередь.',
+    },
+    { key: 'cost', summary: `Полная стоимость в год — от ${usd(byTotal[0].tuitionUSDPerYear + byTotal[0].livingCostUSDPerYear)} (${byTotal[0].shortName}) до ${usd(byTotal[byTotal.length - 1].tuitionUSDPerYear + byTotal[byTotal.length - 1].livingCostUSDPerYear)} (${byTotal[byTotal.length - 1].shortName}) до учёта стипендий.`, notes: note((u) => `обучение ${usd(u.tuitionUSDPerYear)} + проживание ${usd(u.livingCostUSDPerYear)}`), consider: 'Сопоставьте стоимость со своим бюджетом с учётом возможного финансирования.' },
+    { key: 'scholarships', summary: `Полное покрытие возможно в ${unis.filter((u) => u.hasFullGrantOrScholarship).length} из ${unis.length} вузов.`, notes: note((u) => `${u.scholarshipName} (${AID_RU[u.financialAidType] || u.financialAidType})`), consider: 'Уточните условия и сроки стипендии на официальном портале.' },
+    { key: 'exams', summary: 'Наборы экзаменов и минимальные баллы отличаются.', notes: note((u) => [u.minIelts ? `IELTS ${u.minIelts}+` : 'без IELTS', u.minSat && `SAT ${u.minSat}+`, u.minUnt && `ЕНТ ${u.minUnt}+`, u.admissions?.interview && 'интервью'].filter(Boolean).join(', ')), consider: 'Одни экзамены можно использовать сразу для нескольких вузов.' },
+    { key: 'portfolio', summary: 'Вузы по-разному описывают, что ценят в портфолио.', notes: note((u) => universitySignals(u).map((s) => SIGNAL_TITLES[s.id]).join(', ') || 'отдельных требований не публикует'), consider: 'Сильнее всего работают достижения, которые отмечают сразу несколько выбранных вузов.' },
+    { key: 'profileFit', summary: 'Расчёт по опубликованным критериям — не прогноз решения комиссии.', notes: note((u) => { const m = matchOf(u.id); return m ? `закрыто ${m.met}, частично ${m.partial}, не хватает ${m.missing}` : 'нет данных'; }), consider: 'Смотрите, каких требований не хватает, — это и есть план подготовки.' },
+  ];
+  return { overview: '', dimensions: dims, tradeoffs: [], questions: [], dataGaps: ['Даты и суммы в базе — ориентир; перед подачей проверьте их на официальных порталах.'] };
+}
+
+export async function explainUniversityDifferences({ userId, profile, universityIds, language = 'ru', uiState }) {
+  const ids = universityIds.filter((id) => UNIVERSITY_BY_ID.has(id)).slice(0, 6);
+  const ctx = await buildUserContext({ userId, profile, uiState });
+  const p = ctx.profile || profile;
+  const unis = ids.map((id) => UNIVERSITY_BY_ID.get(id));
+  const items = ctx.portfolio.map((it) => ({ ...it, preScore: scoreItem(it).score }));
+  const matches = unis.map((u) => matchPortfolio(p, items, ctx.documents, u));
+  const base = { universityIds: ids };
+  if (!isLlmConfigured() || ids.length < 2) return { ...base, ...offlineDifferences(unis, matches), model: 'offline-rules' };
+
+  const system = `${persona(language)}
+Ты помогаешь абитуриенту самостоятельно выбрать между университетами. Объясни РАЗЛИЧИЯ между ними по фактам и по его профилю.
+Строгие правила:
+- НЕ выбирай лучший или худший вуз, НЕ ставь места, баллы, оценки и рейтинги, НЕ пиши «X лучше Y».
+- Используй только факты из данных ниже; если факта нет — прямо напиши, что данных нет и что нужно проверить на портале.
+- Формулируй выводы условно: «если для вас важнее …, то обратите внимание на …».
+- Про шансы не обещай ничего: соответствие профилю — это сверка с опубликованными критериями, а не прогноз решения.
+Верни СТРОГО JSON (все строки — на ${langName(language)} языке):
+{
+  "overview": string,       // 3–4 предложения: главные различия именно для этого абитуриента
+  "dimensions": [            // ровно 7 блоков с ключами: requirements, deadlines, cost, scholarships, exams, portfolio, profileFit
+    { "key": string, "summary": string /* 1–2 предложения: в чём различие */, "notes": [ { "id": string /* id вуза */, "text": string /* факт по этому вузу, до 25 слов */ } ] /* по одному на каждый вуз */, "consider": string /* что это значит для решения, условно */ }
+  ],
+  "tradeoffs": string[],     // 2–4 условных компромисса «если приоритет — …»
+  "questions": string[],     // 3–4 вопроса, которые стоит задать себе перед решением
+  "dataGaps": string[]       // чего нет в данных и что проверить на официальных порталах
+}`;
+  const user = `# ДАННЫЕ АБИТУРИЕНТА\n${renderContext(ctx, { detail: 'compact', language })}
+
+# СРАВНИВАЕМЫЕ УНИВЕРСИТЕТЫ (факты из базы)
+${unis.map((u, i) => universityFactSheet(u, matches[i])).join('\n\n')}`;
+  const fallbackPrompt = { system, messages: [{ role: 'user', content: `${describeProfile(p)}\n\n${unis.map((u, i) => universityFactSheet(u, matches[i]).slice(0, 1400)).join('\n\n')}` }] };
+
+  let data = null;
+  let model = 'offline-rules';
+  try {
+    const res = await completeJson({ system, messages: [{ role: 'user', content: user }], tier: 'smart', maxTokens: 6000, temperature: 0.3, timeoutMs: 120_000, fallback: fallbackPrompt });
+    data = res.data;
+    model = `${res.provider}:${res.model}`;
+  } catch (err) {
+    console.warn('[ai] explainUniversityDifferences failed:', err.message);
+  }
+  const offline = offlineDifferences(unis, matches);
+  if (!data || !Array.isArray(data.dimensions)) return { ...base, ...offline, model };
+
+  const cleanNotes = (notes) => (Array.isArray(notes) ? notes : []).filter((n) => n && ids.includes(n.id) && typeof n.text === 'string').map((n) => ({ id: n.id, text: n.text.trim().slice(0, 400) }));
+  const strings = (arr, n) => (Array.isArray(arr) ? arr.map((x) => String(x || '').trim()).filter(Boolean).slice(0, n) : []);
+  const dimensions = COMPARE_DIMENSIONS.map((key) => {
+    const ai = data.dimensions.find((d) => d && d.key === key);
+    const fb = offline.dimensions.find((d) => d.key === key);
+    const notes = cleanNotes(ai?.notes);
+    return { key, summary: String(ai?.summary || fb.summary).trim(), notes: notes.length ? notes : fb.notes, consider: String(ai?.consider || fb.consider).trim() };
+  });
+  const output = {
+    ...base,
+    overview: String(data.overview || '').trim(),
+    dimensions,
+    tradeoffs: strings(data.tradeoffs, 5),
+    questions: strings(data.questions, 5),
+    dataGaps: strings(data.dataGaps, 5).length ? strings(data.dataGaps, 5) : offline.dataGaps,
+    model,
+  };
+  await persistAnalysis(userId, 'comparison_insights', { universityIds: ids, language }, output);
+  return output;
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio feedback against the published criteria of the selected universities (JSON)
+// ---------------------------------------------------------------------------
+
+function offlinePortfolioFeedback({ unis, matches, relevant, areas, olympiads }) {
+  const nameOf = (id) => UNIVERSITY_BY_ID.get(id)?.shortName || id;
+  const sum = (k) => matches.reduce((n, m) => n + m[k], 0);
+  const strong = relevant.filter((r) => r.score >= 55).slice(0, 3);
+  return {
+    summary: unis.length
+      ? `По опубликованным критериям выбранных вузов (${unis.map((u) => u.shortName).join(', ')}): закрыто ${sum('met')} требований, частично ${sum('partial')}, не хватает ${sum('missing')}. Это сверка с критериями, а не прогноз решения комиссии.`
+      : 'Добавьте университеты в список, чтобы сравнить портфолио с их критериями.',
+    strengths: strong.map((r) => ({ text: `«${r.title}» — одна из самых релевантных записей для выбранного направления.`, items: [r.title] })),
+    gaps: areas.filter((a) => a.kind === 'signal' && a.status === 'missing').slice(0, 4).map((a) => ({ text: `Нет записей в категории «${SIGNAL_TITLES[a.id] || a.id}».`, why: `Это отмечают: ${a.universities.map(nameOf).join(', ')}.` })),
+    relevant: relevant.slice(0, 3).map((r) => ({ title: r.title, why: r.valuedBy.length ? `Тип достижения ценят ${r.valuedBy.map(nameOf).join(', ')}.` : 'Связано с выбранным направлением.' })),
+    develop: areas.filter((a) => a.kind === 'signal' && a.status === 'partial').slice(0, 3).map((a) => ({ text: `Усилить категорию «${SIGNAL_TITLES[a.id] || a.id}».`, how: 'Добавьте уровень, результат и подтверждающий документ или ссылку.' })),
+    addDocuments: [
+      ...new Set(matches.flatMap((m) => m.checks.filter((c) => c.group === 'documents' && c.status === 'missing' && c.docKind).map((c) => DOC_TITLE_RU[c.docKind] || c.docKind))),
+      ...(areas.find((a) => a.id === 'proof')?.items || []).map((it) => `Подтверждение для «${it.title}» (диплом, сертификат или ссылка)`),
+    ].slice(0, 6),
+    addActivities: olympiads.slice(0, 3).map((r) => `${r.olympiad.shortName} — ${r.reasons[0] || r.olympiad.benefits[0] || ''}`.trim()),
+    perUniversity: matches.map((m) => ({ id: m.universityId, alignment: m.coverage === null ? 'partial' : m.coverage >= 75 ? 'strong' : m.coverage >= 45 ? 'partial' : 'weak', comment: `Закрыто ${m.met}, частично ${m.partial}, не хватает ${m.missing}.` })),
+    recommendations: areas.slice(0, 4).map((a) => ({
+      title: a.kind === 'proof' ? 'Добавить подтверждения к записям' : a.kind === 'numbers' ? 'Добавить цифры в описания' : a.kind === 'academic' ? `Подтянуть требование: ${a.id.toUpperCase()}` : `Развить: ${SIGNAL_TITLES[a.id] || a.id}`,
+      detail: a.items?.length ? `Записи: ${a.items.map((i) => `«${i.title}»`).join(', ')}.` : a.universities.length ? `Важно для: ${a.universities.map(nameOf).join(', ')}.` : '',
+      priority: a.status === 'missing' ? 'high' : 'medium',
+    })),
+  };
+}
+
+export async function portfolioFeedback({ userId, profile, universityIds = [], language = 'ru', uiState }) {
+  const ctx = await buildUserContext({ userId, profile, uiState });
+  const p = ctx.profile || profile;
+  const ids = (universityIds.length ? universityIds : p?.targetUniversityIds || []).filter((id) => UNIVERSITY_BY_ID.has(id)).slice(0, 6);
+  const unis = ids.map((id) => UNIVERSITY_BY_ID.get(id));
+  const items = ctx.portfolio.map((it) => ({ ...it, preScore: scoreItem(it).score }));
+  const matches = unis.map((u) => matchPortfolio(p, items, ctx.documents, u));
+  const relevant = rankRelevantItems(p, items, unis);
+  const areas = developmentAreas(matches, items);
+  const fieldId = fieldForMajors(p?.targetMajors);
+  const rubric = FIELD_RUBRICS[fieldId];
+  const olympiads = recommendOlympiads(p, { limit: 6 });
+  const base = { universityIds: ids, field: fieldId, fieldTitle: rubric.title };
+  const offline = () => ({ ...base, ...offlinePortfolioFeedback({ unis, matches, relevant, areas, olympiads }), model: 'offline-rules' });
+  if (!isLlmConfigured()) return offline();
+
+  const system = `${persona(language)}
+Ты — наставник по портфолио. Дай абитуриенту КОНКРЕТНЫЙ фидбек по его портфолио относительно опубликованных критериев выбранных университетов и направления «${rubric.title}».
+Правила:
+- Ссылайся на конкретные записи портфолио по их названиям; не выдумывай записей, которых нет.
+- Никаких общих советов вроде «участвуйте в олимпиадах» — называй конкретные олимпиады/конкурсы из каталога ниже, конкретные типы проектов и документов.
+- Не обещай поступление и не оценивай шансы: пиши «по опубликованным критериям», «может усилить», «стоит показать».
+- Пример нужного тона: «В профиле уже есть несколько технических проектов. Для выбранного направления можно дополнительно показать исследовательскую деятельность — например, через научный проект или профильную олимпиаду».
+Верни СТРОГО JSON (все строки — на ${langName(language)} языке):
+{
+  "summary": string,                                   // 3–4 предложения
+  "strengths": [ { "text": string, "items": string[] /* названия записей */ } ],   // 2–4
+  "gaps": [ { "text": string, "why": string /* какой вуз/критерий это отмечает */ } ],  // 1–4 возможных пробела
+  "relevant": [ { "title": string /* название записи */, "why": string } ],     // до 3 самых релевантных направлению записей
+  "develop": [ { "text": string, "how": string /* конкретный способ */ } ],     // 2–4
+  "addDocuments": string[],                            // документы и подтверждения, которые стоит добавить
+  "addActivities": string[],                           // активности, которые стоит добавить (конкретные названия)
+  "perUniversity": [ { "id": string, "alignment": "strong"|"partial"|"weak", "comment": string /* 1–2 предложения: насколько профиль соответствует опубликованным требованиям этого вуза */ } ],
+  "recommendations": [ { "title": string, "detail": string, "priority": "high"|"medium"|"low" } ]   // 3–5 конкретных шагов
+}`;
+  const user = `# ДАННЫЕ АБИТУРИЕНТА\n${renderContext(ctx, { detail: 'full', language })}
+
+# РЕЛЕВАНТНОСТЬ ЗАПИСЕЙ НАПРАВЛЕНИЮ «${rubric.title}» (расчёт системы, 0–100)
+${relevant.map((r) => `- «${r.title}» (${r.type}): ${r.score}; ${r.reasons.join(', ')}${r.valuedBy.length ? `; тип ценят: ${r.valuedBy.join(', ')}` : ''}`).join('\n') || 'записей нет'}
+
+# СВЕРКА С ОПУБЛИКОВАННЫМИ КРИТЕРИЯМИ ВУЗОВ
+${unis.map((u, i) => `## ${u.name} [id: ${u.id}]\nЦенят: ${(u.admissions?.likes || []).join('; ') || '—'}\n${describeMatch(matches[i])}`).join('\n\n') || 'Вузы не выбраны.'}
+
+# ЧТО СТОИТ РАЗВИТЬ (расчёт системы)
+${areas.map((a) => `- ${a.kind === 'signal' ? SIGNAL_TITLES[a.id] || a.id : a.id}: ${a.status}${a.universities.length ? ` (${a.universities.join(', ')})` : ''}${a.items?.length ? ` — записи: ${a.items.map((x) => `«${x.title}»`).join(', ')}` : ''}`).join('\n') || '—'}
+
+# ЧТО КОМИССИИ СФЕРЫ ОЖИДАЮТ УВИДЕТЬ
+${rubric.signature.map((s) => `- ${s}`).join('\n')}
+
+# ПОДХОДЯЩИЕ ОЛИМПИАДЫ И КОНКУРСЫ ИЗ КАТАЛОГА
+${olympiads.map((r) => summarizeOlympiadCompact(r.olympiad)).join('\n')}`;
+  const fallbackPrompt = { system, messages: [{ role: 'user', content: `${describeProfile(p)}\n\nЗаписи: ${relevant.map((r) => `«${r.title}» ${r.score}`).join('; ') || 'нет'}\n\n${unis.map((u, i) => `${u.shortName} [${u.id}]: ${describeMatch(matches[i]).slice(0, 900)}`).join('\n\n')}\n\nКаталог: ${olympiads.map((r) => r.olympiad.shortName).join(', ')}` }] };
+
+  let data = null;
+  let model = 'offline-rules';
+  try {
+    const res = await completeJson({ system, messages: [{ role: 'user', content: user }], tier: 'smart', maxTokens: 6000, temperature: 0.35, timeoutMs: 120_000, fallback: fallbackPrompt });
+    data = res.data;
+    model = `${res.provider}:${res.model}`;
+  } catch (err) {
+    console.warn('[ai] portfolioFeedback failed:', err.message);
+  }
+  if (!data || typeof data.summary !== 'string') return { ...offline(), model };
+
+  const strings = (arr, n) => (Array.isArray(arr) ? arr.map((x) => String(x || '').trim()).filter(Boolean).slice(0, n) : []);
+  const objects = (arr, n, pick) => (Array.isArray(arr) ? arr.filter((x) => x && typeof x === 'object').map(pick).filter(Boolean).slice(0, n) : []);
+  const output = {
+    ...base,
+    summary: data.summary.trim(),
+    strengths: objects(data.strengths, 5, (x) => (x.text ? { text: String(x.text).trim(), items: strings(x.items, 4) } : null)),
+    gaps: objects(data.gaps, 5, (x) => (x.text ? { text: String(x.text).trim(), why: String(x.why || '').trim() } : null)),
+    relevant: objects(data.relevant, 3, (x) => (x.title ? { title: String(x.title).trim(), why: String(x.why || '').trim() } : null)),
+    develop: objects(data.develop, 5, (x) => (x.text ? { text: String(x.text).trim(), how: String(x.how || '').trim() } : null)),
+    addDocuments: strings(data.addDocuments, 6),
+    addActivities: strings(data.addActivities, 6),
+    perUniversity: objects(data.perUniversity, 6, (x) => (ids.includes(x.id) ? { id: x.id, alignment: ['strong', 'partial', 'weak'].includes(x.alignment) ? x.alignment : 'partial', comment: String(x.comment || '').trim() } : null)),
+    recommendations: objects(data.recommendations, 6, (x) => (x.title ? { title: String(x.title).trim(), detail: String(x.detail || '').trim(), priority: ['high', 'medium', 'low'].includes(x.priority) ? x.priority : 'medium' } : null)),
+    model,
+  };
+  await persistAnalysis(userId, 'portfolio_feedback', { universityIds: ids, language }, output);
+  return output;
+}
+
+// ---------------------------------------------------------------------------
+// Motivation letter builder: feedback on the applicant's own text, stage by stage (JSON)
+// ---------------------------------------------------------------------------
+
+export const ESSAY_STAGES = ['hook', 'projects', 'university', 'future', 'all'];
+const ESSAY_STAGE_TITLES = { hook: 'Импульс', projects: 'Проекты', university: 'Выбор вуза', future: 'Перспективы', all: 'Всё письмо' };
+const CLICHE_RE = /(с (самого )?детства|с юных лет|с малых лет|всегда мечтал\S*|всю жизнь мечтал\S*|мечта\S* с детства|моя страсть|страсть к|изменить мир|since (i was )?(a )?(child|kid)|always dreamed|my passion|change the world|с ранних лет)/i;
+const ESSAY_TYPES = ['generic', 'cliche', 'no_example', 'no_link', 'no_result', 'weak_university_link', 'logic', 'other'];
+
+const txt = (v) => String(v ?? '').trim();
+
+/** Stage text in a labelled form the model (and the checks) can read. */
+export function essayStageText(stage, s = {}, uni = null) {
+  const parts = [];
+  if (stage === 'hook' || stage === 'all') parts.push(`## Импульс\n${txt(s.hook) || '—'}`);
+  if (stage === 'projects' || stage === 'all') {
+    const projects = (Array.isArray(s.projects) ? s.projects : []).filter((pr) => Object.values(pr || {}).some((v) => txt(v)));
+    parts.push(
+      `## Проекты\n${
+        projects
+          .map((pr, i) => `Проект ${i + 1} «${txt(pr.title) || 'без названия'}»: проблема — ${txt(pr.problem) || '—'}; роль — ${txt(pr.role) || '—'}; технологии/методы — ${txt(pr.methods) || '—'}; результат — ${txt(pr.result) || '—'}; навыки — ${txt(pr.skills) || '—'}; связь с направлением — ${txt(pr.link) || '—'}`)
+          .join('\n') || '—'
+      }`,
+    );
+  }
+  if (stage === 'university' || stage === 'all') {
+    const u = s.university || {};
+    parts.push(
+      `## Выбор вуза\nВуз: ${uni ? uni.name : '—'}; программа: ${txt(u.program) || '—'}\nПочему этот вуз: ${txt(u.whyUniversity) || '—'}\nПочему эта программа: ${txt(u.whyProgram) || '—'}\nОсобенности программы: ${txt(u.features) || '—'}\nВозможности вуза и цели: ${txt(u.opportunities) || '—'}\nСвязь с предыдущим опытом: ${txt(u.experienceLink) || '—'}`,
+    );
+  }
+  if (stage === 'future' || stage === 'all') {
+    const f = s.future || {};
+    parts.push(
+      `## Перспективы\nАкадемические цели: ${txt(f.academic) || '—'}\nПрофессиональные цели: ${txt(f.professional) || '—'}\nНаправление развития: ${txt(f.direction) || '—'}\nКакие проблемы хочет решать: ${txt(f.problems) || '—'}\nКак поможет обучение: ${txt(f.howHelps) || '—'}`,
+    );
+  }
+  return parts.join('\n\n');
+}
+
+/** The applicant's own texts of a stage (the university id is not text). */
+export function essayStageTexts(stage, s = {}) {
+  const all = stage === 'all';
+  const texts = [];
+  if (all || stage === 'hook') texts.push(txt(s.hook));
+  if (all || stage === 'projects') for (const pr of Array.isArray(s.projects) ? s.projects : []) texts.push(...Object.values(pr || {}).map(txt));
+  if (all || stage === 'university') texts.push(...Object.entries(s.university || {}).filter(([k]) => k !== 'universityId').map(([, v]) => txt(v)));
+  if (all || stage === 'future') texts.push(...Object.values(s.future || {}).map(txt));
+  return texts.filter(Boolean);
+}
+
+/** Plain checks that do not need a model: clichés, missing results, a university reason that never names it. */
+export function essayChecks(stage, s = {}, uni = null) {
+  const issues = [];
+  const all = stage === 'all';
+  for (const t of essayStageTexts(stage, s)) {
+    const m = CLICHE_RE.exec(t);
+    if (m) {
+      issues.push({ type: 'cliche', quote: m[0], comment: 'Шаблонная формулировка — комиссии встречают её в тысячах писем.', suggestion: 'Замените её конкретным моментом: что именно произошло, когда и что вы тогда сделали.' });
+      break;
+    }
+  }
+  if ((all || stage === 'hook') && txt(s.hook) && txt(s.hook).length < 200) {
+    issues.push({ type: 'no_example', quote: '', comment: 'Импульс описан слишком коротко — не видно конкретной ситуации.', suggestion: 'Опишите одну сцену: где вы были, какую проблему увидели и какой вопрос у вас возник.' });
+  }
+  if (all || stage === 'projects') {
+    (s.projects || []).forEach((pr, i) => {
+      if (!Object.values(pr || {}).some((v) => txt(v))) return;
+      const name = txt(pr.title) || `Проект ${i + 1}`;
+      if (!txt(pr.result)) issues.push({ type: 'no_result', quote: name, comment: `У проекта «${name}» не указан результат.`, suggestion: 'Добавьте, что изменилось благодаря проекту: цифры, пользователи, награда, вывод исследования.' });
+      else if (!/\d/.test(pr.result)) issues.push({ type: 'generic', quote: txt(pr.result).slice(0, 80), comment: `Результат проекта «${name}» без измеримых данных.`, suggestion: 'Если есть цифры (сколько людей, сколько времени, какой рост) — добавьте их.' });
+      if (!txt(pr.link)) issues.push({ type: 'no_link', quote: name, comment: `Не показано, как проект «${name}» связан с выбранным направлением.`, suggestion: 'Одной фразой свяжите навык из проекта с тем, что вы будете изучать.' });
+    });
+  }
+  if (all || stage === 'university') {
+    const u = s.university || {};
+    if (!uni) issues.push({ type: 'weak_university_link', quote: '', comment: 'Не выбран университет — мотивацию не с чем связать.', suggestion: 'Выберите вуз из своего списка.' });
+    else if (txt(u.whyUniversity)) {
+      const markers = [uni.name, uni.shortName, uni.nativeName, ...(uni.flagshipPrograms || []), ...(uni.campus?.internalProjects || []).map((x) => x.split(/[—(–-]/)[0]), ...(uni.campus?.studentClubs || [])]
+        .filter(Boolean)
+        .map((x) => x.trim().toLowerCase())
+        .filter((x) => x.length >= 3);
+      const text = `${u.whyUniversity} ${u.features || ''} ${u.opportunities || ''}`.toLowerCase();
+      if (!markers.some((mk) => text.includes(mk))) issues.push({ type: 'weak_university_link', quote: txt(u.whyUniversity).slice(0, 80), comment: 'Объяснение подходит к любому вузу — не названо ничего специфичного для этого университета.', suggestion: 'Назовите конкретную программу, лабораторию, проект или клуб этого вуза и объясните, чем они вам нужны.' });
+    }
+    if (uni && !txt(u.experienceLink)) issues.push({ type: 'no_link', quote: '', comment: 'Не показана связь предыдущего опыта с выбранной программой.', suggestion: 'Свяжите один из своих проектов с конкретной частью программы.' });
+  }
+  if ((all || stage === 'future') && !txt(s.future?.howHelps) && Object.values(s.future || {}).some((v) => txt(v))) {
+    issues.push({ type: 'no_link', quote: '', comment: 'Цели есть, но не показано, как обучение в выбранном вузе поможет их достичь.', suggestion: 'Назовите, какие знания или возможности вуза нужны для каждой цели.' });
+  }
+  return issues;
+}
+
+export async function essayFeedback({ userId, stage, sections, universityId, profile, language = 'ru', uiState }) {
+  const uni = universityId ? UNIVERSITY_BY_ID.get(universityId) || null : null;
+  const checks = essayChecks(stage, sections, uni);
+  const text = essayStageText(stage, sections, uni);
+  const base = { stage, checks };
+  if (!isLlmConfigured()) return { ...base, summary: '', strengths: [], issues: checks, questions: [], model: 'offline-rules' };
+
+  const ctx = await buildUserContext({ userId, profile, uiState });
+  const system = `${persona(language)}
+Ты — редактор мотивационных писем (Personal Statement). Абитуриент пишет письмо сам по модульной структуре: Импульс → Проекты → Выбор вуза → Перспективы. Сейчас нужен разбор этапа «${ESSAY_STAGE_TITLES[stage]}».
+Строгие правила:
+- НЕ пиши эссе и абзацы за автора и не переписывай его текст целиком. Помогай ему улучшить СОБСТВЕННЫЙ текст.
+- В "suggestion" — указание, что сделать; допускается максимум одна короткая фраза-образец.
+- Указывай, где текст слишком общий, где шаблонные формулировки, где не хватает конкретного примера, где нет связи опыта со специальностью, где стоит добавить результат проекта, где мотивация не связана с вузом, где нарушена логика.
+- Сверяйся с реальным профилем и портфолио: если в портфолио есть сильная история, которой нет в тексте, — скажи об этом.
+- Цитаты ("quote") — точные фрагменты текста автора до 15 слов или пустая строка.
+Верни СТРОГО JSON (все строки — на ${langName(language)} языке):
+{
+  "summary": string,          // 2–3 предложения о состоянии этапа
+  "strengths": string[],      // 1–3 конкретные сильные стороны
+  "issues": [ { "type": "generic"|"cliche"|"no_example"|"no_link"|"no_result"|"weak_university_link"|"logic"|"other", "quote": string, "comment": string, "suggestion": string } ],  // 2–6
+  "questions": string[]       // 2–4 наводящих вопроса, чтобы автор добавил конкретики
+}`;
+  const user = `# ДАННЫЕ АБИТУРИЕНТА\n${renderContext(ctx, { detail: 'compact', language })}
+
+${uni ? `# ВЫБРАННЫЙ УНИВЕРСИТЕТ\n${summarizeUniversity(uni)}\n` : ''}
+# ЗАМЕЧАНИЯ АВТОМАТИЧЕСКОЙ ПРОВЕРКИ (учти, не повторяй дословно)
+${checks.map((c) => `- ${c.type}: ${c.comment}`).join('\n') || '—'}
+
+# ТЕКСТ АВТОРА (этап «${ESSAY_STAGE_TITLES[stage]}»)
+"""
+${text.slice(0, 12_000)}
+"""`;
+  const fallbackPrompt = { system, messages: [{ role: 'user', content: `${describeProfile(ctx.profile)}\n\n${uni ? `Вуз: ${uni.name}. Программы: ${uni.flagshipPrograms.join(', ')}.\n` : ''}Текст:\n${text.slice(0, 5000)}` }] };
+
+  let data = null;
+  let model = 'offline-rules';
+  try {
+    const res = await completeJson({ system, messages: [{ role: 'user', content: user }], tier: 'smart', maxTokens: 3000, temperature: 0.35, timeoutMs: 90_000, fallback: fallbackPrompt });
+    data = res.data;
+    model = `${res.provider}:${res.model}`;
+  } catch (err) {
+    console.warn('[ai] essayFeedback failed:', err.message);
+  }
+  if (!data || !Array.isArray(data.issues)) return { ...base, summary: '', strengths: [], issues: checks, questions: [], model };
+
+  const issues = data.issues
+    .filter((x) => x && typeof x === 'object' && (x.comment || x.suggestion))
+    .slice(0, 8)
+    .map((x) => ({ type: ESSAY_TYPES.includes(x.type) ? x.type : 'other', quote: String(x.quote || '').trim().slice(0, 160), comment: String(x.comment || '').trim(), suggestion: String(x.suggestion || '').trim() }));
+  const output = {
+    ...base,
+    summary: String(data.summary || '').trim(),
+    strengths: (Array.isArray(data.strengths) ? data.strengths : []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 4),
+    issues: issues.length ? issues : checks,
+    questions: (Array.isArray(data.questions) ? data.questions : []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 5),
+    model,
+  };
+  await persistAnalysis(userId, 'essay_stage', { stage, universityId, language }, { summary: output.summary });
   return output;
 }
 

@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { asyncHandler, badRequest } from '../utils/errors.js';
 import { requireString, requireObject } from '../utils/validate.js';
 import { aiLimiter } from '../middleware/rateLimit.js';
-import { analyzeApplicant, compareUniversities, reviewEssay, translateTexts, aiStatus } from '../services/ai.service.js';
+import { analyzeApplicant, compareUniversities, reviewEssay, translateTexts, aiStatus, quickVerdict, explainUniversityDifferences, essayFeedback, ESSAY_STAGES, essayStageTexts } from '../services/ai.service.js';
 import { chat, chatStream, loadHistory, clearHistory, saveFeedback } from '../services/chat.service.js';
 import { clearMemory, getMemory } from '../services/memory.service.js';
 import { transcribeAudio } from '../services/groq.client.js';
@@ -94,6 +94,16 @@ aiRouter.post(
   }),
 );
 
+/** Body: { profile, language? } — preliminary verdict for the 7-question express test. */
+aiRouter.post(
+  '/quick-verdict',
+  aiLimiter,
+  asyncHandler(async (req, res) => {
+    const profile = requireObject(req.body?.profile, 'profile');
+    res.json(await quickVerdict({ userId: req.user?.id, profile, language: pickLang(req) }));
+  }),
+);
+
 aiRouter.post(
   '/analyze',
   aiLimiter,
@@ -113,6 +123,32 @@ aiRouter.post(
     const ids = Array.isArray(req.body?.universityIds) ? req.body.universityIds.map(String).slice(0, 6) : [];
     if (ids.length < 2) throw badRequest('Для сравнения нужно минимум два университета', 'VALIDATION');
     res.json(await compareUniversities({ userId: req.user?.id, profile: profileOf(req.body), universityIds: ids, language: pickLang(req), uiState: uiStateOf(req.body) }));
+  }),
+);
+
+/** Body: { universityIds: string[], profile?, uiState? } — differences explained by facts, without a ranking. */
+aiRouter.post(
+  '/compare-insights',
+  aiLimiter,
+  asyncHandler(async (req, res) => {
+    const ids = Array.isArray(req.body?.universityIds) ? [...new Set(req.body.universityIds.map(String))].slice(0, 6) : [];
+    if (ids.length < 2) throw badRequest('Для сравнения нужно минимум два университета', 'VALIDATION');
+    res.json(await explainUniversityDifferences({ userId: req.user?.id, profile: profileOf(req.body), universityIds: ids, language: pickLang(req), uiState: uiStateOf(req.body) }));
+  }),
+);
+
+/** Body: { stage: hook|projects|university|future|all, sections, universityId?, profile? } — feedback on the applicant's own text. */
+aiRouter.post(
+  '/essay-feedback',
+  aiLimiter,
+  asyncHandler(async (req, res) => {
+    const stage = ESSAY_STAGES.includes(req.body?.stage) ? req.body.stage : null;
+    if (!stage) throw badRequest('Неизвестный этап письма', 'VALIDATION');
+    const sections = requireObject(req.body?.sections, 'sections');
+    const universityId = typeof req.body?.universityId === 'string' ? req.body.universityId : undefined;
+    if (essayStageTexts(stage, sections).join(' ').length < 40) throw badRequest('Сначала напишите хотя бы пару предложений на этом этапе', 'ESSAY_TOO_SHORT');
+    if (JSON.stringify(sections).length > 40_000) throw badRequest('Текст слишком длинный', 'VALIDATION');
+    res.json(await essayFeedback({ userId: req.user?.id, stage, sections, universityId, profile: profileOf(req.body), language: pickLang(req), uiState: uiStateOf(req.body) }));
   }),
 );
 

@@ -3,7 +3,7 @@
 import { cacheGet, cacheSet } from '../db/store.js';
 import { config } from '../config.js';
 
-const UA = 'Mozilla/5.0 (compatible; AdmitRouteBot/1.0; +https://admitroute.local)';
+const UA = 'Mozilla/5.0 (compatible; UniRouteBot/1.0; +https://uniroute.local)';
 
 function decodeEntities(s) {
   return String(s || '')

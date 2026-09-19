@@ -1,25 +1,29 @@
 import React, { useState } from 'react';
-import { 
-  ArrowRight, 
-  ArrowLeft, 
-  Coins, 
-  ExternalLink, 
-  GitCompare, 
+import {
+  ArrowRight,
+  ArrowLeft,
+  Coins,
+  ExternalLink,
+  GitCompare,
   Calendar,
-  Building,
   Check,
+  Plus,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ShieldCheck
 } from 'lucide-react';
 import { OddsBadge } from './ui/OddsBadge';
 import { ApplicantProfile, FitTier, TargetRegion, University } from '../types';
 import { UniversityDetails } from './UniversityDetails';
+import { UniversityCrest } from './ui/UniversityCrest';
 import { useI18n } from '../i18n/I18nContext';
 
 interface Step4RecommendationsProps {
   universities: University[];
   profile: ApplicantProfile;
+  /** The applicant's selected universities: «Мой список» and the comparison are one and the same list */
   selectedForCompare: string[];
+  /** Selects / deselects a university (it appears in / disappears from the comparison at once) */
   onToggleCompare: (uniId: string) => void;
   onNext: () => void;
   onBack: () => void;
@@ -33,6 +37,7 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
   onNext,
   onBack,
 }) => {
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<'all' | 'university' | 'college' | 'school'>('all');
   const [activeTierFilter, setActiveTierFilter] = useState<'all' | FitTier>('all');
   const [activeRegionFilter, setActiveRegionFilter] = useState<'all' | TargetRegion>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -40,6 +45,7 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
   const { t, tx } = useI18n();
 
   const filteredUnis = universities.filter(uni => {
+    if (activeCategoryFilter !== 'all' && (uni.category || 'university') !== activeCategoryFilter) return false;
     if (activeTierFilter !== 'all' && uni.fitTier !== activeTierFilter) return false;
     if (activeRegionFilter !== 'all' && uni.region !== activeRegionFilter) return false;
     return true;
@@ -48,20 +54,20 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
   const getTierBadge = (tier: FitTier) => {
     if (tier === 'Dream') {
       return (
-        <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-300">
+        <span className="ar-badge bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
           {t('uni.tier.Dream')}
         </span>
       );
     }
     if (tier === 'Target') {
       return (
-        <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+        <span className="ar-badge ar-badge-blue">
           {t('uni.tier.Target')}
         </span>
       );
     }
     return (
-      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+      <span className="ar-badge ar-badge-green">
         {t('uni.tier.Safety')}
       </span>
     );
@@ -70,85 +76,113 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
   const shownUnis = filteredUnis.slice(0, visibleCount);
 
   return (
-    <div className="space-y-8 py-4">
-      
+    <div className="space-y-6 py-4">
+
       {/* Stage Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[var(--line)]">
+        <div className="min-w-0">
+          <div className="ar-kicker mb-1">
             {t('steps.4.kicker')}
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             {t('steps.4.title')}
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
             {t('steps.4.subtitle')}
           </p>
         </div>
 
         {/* Compare count pill */}
-        <div className="self-start sm:self-auto flex items-center gap-3">
-          <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
-            {t('steps.4.selected')} <strong className="text-slate-900">{selectedForCompare.length}</strong>
+        <div className="self-start sm:self-auto flex flex-wrap items-center gap-2 shrink-0">
+          <div className="inline-flex items-center gap-1 min-h-8 px-3 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-medium text-slate-600 dark:text-zinc-300">
+            {t('steps.4.selected')} <strong className="font-semibold tabular-nums text-slate-900 dark:text-white">{selectedForCompare.length}</strong>
           </div>
-          {selectedForCompare.length >= 2 && (
+          {selectedForCompare.length >= 1 && (
             <button
+              type="button"
               onClick={onNext}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition"
+              className="ar-btn ar-btn-primary ar-btn-sm"
             >
-              <GitCompare className="w-3.5 h-3.5" />
+              <GitCompare className="w-4 h-4" />
               <span>{t('steps.4.compare')} ({selectedForCompare.length})</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Filters Bar: Tiers & Regions */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-        
-        {/* Tier Filters */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
-          <span className="text-slate-400 mr-1 text-[11px]">{t('steps.4.tierFilter')}</span>
+      {/* Filters Bar: Categories, Tiers & Regions */}
+      <div className="ar-card p-3.5 sm:p-4 space-y-3">
+
+        {/* Category Filters */}
+        <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-[var(--line)]">
+          <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 mr-1">{t('steps.4.categoryFilter')}</span>
           {[
-            { id: 'all', label: `${t('steps.4.all')} (${universities.length})` },
-            { id: 'Dream', label: t('uni.tier.Dream') },
-            { id: 'Target', label: t('uni.tier.Target') },
-            { id: 'Safety', label: t('uni.tier.Safety') },
-          ].map((t) => (
+            { id: 'all', label: `${t('category.all')} (${universities.length})` },
+            { id: 'university', label: `${t('category.university')} (${universities.filter(u => !u.category || u.category === 'university').length})` },
+            { id: 'college', label: `${t('category.college')} (${universities.filter(u => u.category === 'college').length})` },
+            { id: 'school', label: `${t('category.school')} (${universities.filter(u => u.category === 'school').length})` },
+          ].map((c) => (
             <button
-              key={t.id}
-              onClick={() => setActiveTierFilter(t.id as any)}
-              className={`px-3 py-1.5 rounded-xl transition ${activeTierFilter === t.id ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              key={c.id}
+              type="button"
+              onClick={() => setActiveCategoryFilter(c.id as any)}
+              aria-pressed={activeCategoryFilter === c.id}
+              className="ar-chip"
             >
-              {t.label}
+              {c.label}
             </button>
           ))}
         </div>
 
-        {/* Region Filters */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
-          <span className="text-slate-400 mr-1 text-[11px]">{t('steps.4.regionFilter')}</span>
-          {[
-            { id: 'all', label: t('steps.4.all') },
-            { id: 'kazakhstan', label: t('region.kazakhstan') },
-            { id: 'europe', label: t('region.europe') },
-            { id: 'asia', label: t('region.asia') },
-            { id: 'usa_canada', label: t('region.usa_canada') },
-          ].map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setActiveRegionFilter(r.id as any)}
-              className={`px-3 py-1.5 rounded-xl transition ${activeRegionFilter === r.id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-            >
-              {r.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          {/* Tier Filters */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 mr-1">{t('steps.4.tierFilter')}</span>
+            {[
+              { id: 'all', label: `${t('steps.4.all')} (${universities.length})` },
+              { id: 'Dream', label: t('uni.tier.Dream') },
+              { id: 'Target', label: t('uni.tier.Target') },
+              { id: 'Safety', label: t('uni.tier.Safety') },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setActiveTierFilter(t.id as any)}
+                aria-pressed={activeTierFilter === t.id}
+                className="ar-chip"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Region Filters */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 mr-1">{t('steps.4.regionFilter')}</span>
+            {[
+              { id: 'all', label: t('steps.4.all') },
+              { id: 'kazakhstan', label: t('region.kazakhstan') },
+              { id: 'europe', label: t('region.europe') },
+              { id: 'asia', label: t('region.asia') },
+              { id: 'usa_canada', label: t('region.usa_canada') },
+            ].map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setActiveRegionFilter(r.id as any)}
+                aria-pressed={activeRegionFilter === r.id}
+                className="ar-chip"
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
 
       </div>
 
       {/* University Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
         {shownUnis.map((uni) => {
           const isCompared = selectedForCompare.includes(uni.id);
           const isExpanded = expandedId === uni.id;
@@ -156,29 +190,27 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
           return (
             <div
               key={uni.id}
-              className={`bg-white dark:bg-zinc-900 rounded-2xl border transition-all duration-300 overflow-hidden flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-slate-300 dark:hover:border-zinc-600 ${isExpanded ? 'lg:col-span-2' : ''}
-                ${isCompared ? 'border-slate-900 ring-1 ring-slate-900 dark:border-white dark:ring-white shadow-[0_4px_12px_rgba(15,23,42,0.1)]' : 'border-slate-200 dark:border-zinc-800 shadow-xs'}`}
+              className={`ar-card overflow-hidden flex flex-col justify-between min-w-0 ${isExpanded ? 'lg:col-span-2' : ''}
+                ${isCompared ? 'border-blue-500 ring-1 ring-blue-500 dark:border-blue-400 dark:ring-blue-400' : ''}`}
             >
-              <div className="p-6 space-y-4">
-                
+              <div className="p-5 sm:p-6 space-y-4">
+
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center border border-slate-200 shrink-0">
-                      <Building className="w-5 h-5 text-slate-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 leading-tight">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <UniversityCrest uni={uni} size={48} rounded="rounded-xl" />
+                    <div className="min-w-0">
+                      <h3 className="text-base font-semibold text-slate-900 dark:text-white leading-snug">
                         {uni.name}
                       </h3>
-                      <p className="text-xs text-slate-500 font-normal mt-0.5">
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                         {uni.nativeName} • {uni.city}, {uni.country}
                       </p>
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0 space-y-1.5">
-                    <div className="text-xs font-bold font-mono text-slate-900 dark:text-white bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700">
+                  <div className="flex flex-col items-end shrink-0 gap-1.5">
+                    <div className="text-xs font-semibold tabular-nums text-slate-900 dark:text-white bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-lg">
                       {uni.matchScore}% Match
                     </div>
                     <OddsBadge score={uni.matchScore} />
@@ -186,60 +218,81 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
                 </div>
 
                 {/* Badges bar */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {getTierBadge(uni.fitTier)}
+                  {uni.category === 'school' && (
+                    <span className="ar-badge">
+                      {t('category.school')}
+                    </span>
+                  )}
+                  {uni.category === 'college' && (
+                    <span className="ar-badge">
+                      {t('category.college')}
+                    </span>
+                  )}
+                  {(!uni.category || uni.category === 'university') && (
+                    <span className="ar-badge">
+                      {t('category.university')}
+                    </span>
+                  )}
+                  {uni.gradeLevel && (
+                    <span className="ar-badge whitespace-normal">
+                      {uni.gradeLevel}
+                    </span>
+                  )}
                   {uni.nationalRank && (
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200">
+                    <span className="ar-badge whitespace-normal">
                       {uni.nationalRank}
                     </span>
                   )}
                   {uni.hasFullGrantOrScholarship && (
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                      <Coins className="w-3 h-3 text-emerald-600" />
+                    <span className="ar-badge ar-badge-green">
+                      <Coins className="w-3 h-3" />
                       <span>{t('100% Грант')}</span>
                     </span>
                   )}
                   {uni.campus && (
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200" title={t('uni.safety')}>
-                      🛡 {uni.campus.neighborhoodSafety}/10
+                    <span className="ar-badge" title={t('uni.safety')}>
+                      <ShieldCheck className="w-3 h-3" />
+                      <span className="tabular-nums">{uni.campus.neighborhoodSafety}/10</span>
                     </span>
                   )}
                 </div>
 
                 {/* Human-language "Why it fits" Box */}
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 space-y-1.5">
-                  <div className="font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-[var(--line)] space-y-1.5">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
                     {t('Обоснование соответствия профилю:')}
                   </div>
-                  <p className="leading-relaxed font-normal text-slate-700">
+                  <p className="text-sm leading-relaxed text-slate-700 dark:text-zinc-300">
                     {tx(uni.whyItFits)}
                   </p>
                 </div>
 
                 {/* Financial & Academic Requirements Row */}
-                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] text-slate-400 block font-medium">{t('Финансирование')}</span>
-                    <span className="font-semibold text-slate-800 truncate block text-[11px]" title={tx(uni.scholarshipName)}>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="px-3 py-2.5 rounded-xl border border-[var(--line)] min-w-0">
+                    <span className="text-xs text-slate-500 dark:text-zinc-400 block">{t('Финансирование')}</span>
+                    <span className="font-semibold text-slate-900 dark:text-white truncate block text-sm mt-0.5" title={tx(uni.scholarshipName)}>
                       {tx(uni.scholarshipName)}
                     </span>
                   </div>
 
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[10px] text-slate-400 block font-medium">{t('Пороговые баллы')}</span>
-                    <span className="font-semibold text-slate-800 block text-[11px]">
+                  <div className="px-3 py-2.5 rounded-xl border border-[var(--line)] min-w-0">
+                    <span className="text-xs text-slate-500 dark:text-zinc-400 block">{t('Пороговые баллы')}</span>
+                    <span className="font-semibold text-slate-900 dark:text-white block text-sm mt-0.5">
                       IELTS {uni.minIelts}+ {uni.minSat ? `• SAT ${uni.minSat}+` : uni.minUnt ? `• ЕНТ ${uni.minUnt}+` : ''}
                     </span>
                   </div>
                 </div>
 
                 {/* Deadlines notice */}
-                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{t('Срок подачи')}: <strong className="text-slate-800">{tx(uni.regularDeadline)}</strong></span>
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-zinc-400">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{t('Срок подачи')}: <strong className="font-semibold text-slate-800 dark:text-zinc-200">{tx(uni.regularDeadline)}</strong></span>
                   </div>
-                  <span className="text-[10px] text-slate-400 font-mono">
+                  <span className="text-[11px] text-slate-400 dark:text-zinc-500">
                     {t('Приемная кампания 2026/2027')}
                   </span>
                 </div>
@@ -250,35 +303,39 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
               {isExpanded && <UniversityDetails uni={uni} profile={profile} />}
 
               {/* Bottom Action Footer */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-3">
+              <div className="px-5 sm:px-6 py-3.5 bg-[var(--surface-subtle)] border-t border-[var(--line)] flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-4">
                   <a
                     href={uni.officialPortalUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 transition"
+                    className="inline-flex items-center gap-1 min-h-8 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition"
                   >
                     <span>{t('common.officialPortal')}</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                   <button
+                    type="button"
                     onClick={() => setExpandedId(isExpanded ? null : uni.id)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900 transition"
+                    aria-expanded={isExpanded}
+                    className="ar-link min-h-8 text-xs"
                   >
                     {isExpanded ? t('common.hide') : t('common.details')}
                     {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </button>
                 </div>
 
+                {/* One choice: a selected university is on «Мой список» and in the comparison at the same time. */}
                 <button
+                  type="button"
                   onClick={() => onToggleCompare(uni.id)}
-                  className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition
-                    ${isCompared 
-                      ? 'bg-slate-900 text-white' 
-                      : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300'}`}
+                  aria-pressed={isCompared}
+                  title={t(isCompared ? 'uni.deselectHint' : 'uni.selectHint')}
+                  className={`ar-btn ar-btn-sm ${isCompared ? 'ar-btn-primary' : 'ar-btn-secondary'}`}
                 >
-                  <GitCompare className="w-3.5 h-3.5" />
-                  <span>{t(isCompared ? 'В сравнении' : 'Добавить к сравнению')}</span>
+                  {isCompared ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  <span>{t(isCompared ? 'uni.selected' : 'uni.select')}</span>
+                  {isCompared && <GitCompare className="w-4 h-4 opacity-80" />}
                 </button>
               </div>
             </div>
@@ -291,7 +348,7 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
           <button
             type="button"
             onClick={() => setVisibleCount((c) => c + 12)}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition"
+            className="ar-btn ar-btn-secondary"
           >
             <ChevronDown className="w-4 h-4" />
             +{filteredUnis.length - visibleCount}
@@ -300,11 +357,11 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
       )}
 
       {/* Bottom Navigation */}
-      <div className="flex items-center justify-between pt-6 border-t border-slate-200">
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-5 border-t border-[var(--line)]">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition"
+          className="ar-btn ar-btn-secondary w-full sm:w-auto"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>{t('steps.4.back')}</span>
@@ -313,7 +370,7 @@ export const Step4Recommendations: React.FC<Step4RecommendationsProps> = ({
         <button
           type="button"
           onClick={onNext}
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-semibold hover:bg-slate-800 transition"
+          className="ar-btn ar-btn-primary w-full sm:w-auto"
         >
           <span>{t('steps.4.next')}</span>
           <ArrowRight className="w-4 h-4" />

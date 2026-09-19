@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
-import { 
-  ArrowLeft, 
-  Copy, 
-  Check, 
-  FileText, 
-  Calendar, 
-  RotateCcw, 
+import {
+  ArrowLeft,
+  Copy,
+  Check,
+  FileText,
+  Calendar,
+  RotateCcw,
   Mail,
-  Lightbulb,
-  Send
+  Lightbulb
 } from 'lucide-react';
 import { RoadmapStep } from '../types';
 
@@ -32,6 +31,8 @@ interface Step7NextActionProps {
   onOpenEssayModal: () => void;
   onOpenCalendarModal: () => void;
   onOpenEmailModal: () => void;
+  /** Inside «Анализ поступления»: the section supplies the title and the tabs replace back/next. */
+  embedded?: boolean;
 }
 
 export const Step7NextAction: React.FC<Step7NextActionProps> = ({
@@ -43,6 +44,7 @@ export const Step7NextAction: React.FC<Step7NextActionProps> = ({
   onOpenEssayModal,
   onOpenCalendarModal,
   onOpenEmailModal,
+  embedded = false,
 }) => {
   const { t, tx } = useI18n();
   const [copiedTemplate, setCopiedTemplate] = useState<boolean>(false);
@@ -50,13 +52,13 @@ export const Step7NextAction: React.FC<Step7NextActionProps> = ({
 
   const teacherEmailTemplate = `Уважаемый(ая) [Имя Отчество учителя],
 
-Пишет Вам [Ваше Имя Фамилия], ученик(ца) [Ваш класс]. 
+Пишет Вам [Ваше Имя Фамилия], ученик(ца) [Ваш класс].
 
-В этом учебном году я формирую пакет документов для поступления в университет по специальности [Ваше академическое направление]. 
+В этом учебном году я формирую пакет документов для поступления в университет по специальности [Ваше академическое направление].
 
 Ваш курс по [Название предмета] сыграл ключевую роль в моем профессиональном самоопределении. Обращаюсь к Вам с просьбой выступить моим академическим рекомендателем и предоставить рекомендательное письмо для приемной комиссии.
 
-Срок предоставления рекомендации: [Дата дедлайна]. 
+Срок предоставления рекомендации: [Дата дедлайна].
 Я подготовил(а) резюме своих учебных проектов и внеклассных достижений и готов(а) направить их для удобства подготовки письма.
 
 Заранее признателен(на) за уделенное время.
@@ -72,175 +74,182 @@ export const Step7NextAction: React.FC<Step7NextActionProps> = ({
   };
 
   return (
-    <div className="space-y-8 py-4">
-      
+    <div className={embedded ? 'space-y-6' : 'space-y-6 py-4'}>
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+      {!embedded && (
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[var(--line)]">
+        <div className="min-w-0">
+          <div className="ar-kicker mb-1">
             {t('steps.7.kicker')}
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             {t('steps.7.title')}
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
             {t('steps.7.subtitle')}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <button
+            type="button"
             onClick={onOpenEmailModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition border border-blue-200"
+            className="ar-btn ar-btn-secondary ar-btn-sm max-w-full whitespace-normal text-left"
           >
-            <Mail className="w-3.5 h-3.5 text-blue-600" />
+            <Mail className="w-4 h-4" />
             <span>{t('Отправить план на Gmail (Google SMTP)')}</span>
           </button>
 
           <button
+            type="button"
             onClick={onRestart}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+            className="ar-btn ar-btn-quiet ar-btn-sm"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+            <RotateCcw className="w-4 h-4" />
             <span>{t('steps.7.restart')}</span>
           </button>
         </div>
       </div>
+      )}
 
       {/* Hero Focal Card */}
-      <div className="rounded-2xl bg-slate-900 text-white p-7 sm:p-9 border border-slate-800 shadow-sm space-y-6">
-        
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="px-3 py-1 rounded-md bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-700">
-              {t('Приоритетная задача недели')}
-            </span>
+      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 dark:border-blue-500/20 dark:bg-blue-500/10 p-5 sm:p-7 space-y-5">
 
-            <span className="text-xs text-slate-400 font-mono">
-              {t('Контрольный срок')}: {tx(currentStepData.deadline)}
-            </span>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <span className="ar-badge bg-white text-blue-700 border border-blue-100 dark:text-blue-200 dark:border-blue-500/20">
+            {t('Приоритетная задача недели')}
+          </span>
 
-          <h3 className="text-xl sm:text-2xl font-bold text-white leading-snug">
-            {tx(currentStepData.stepTitle)}
-          </h3>
-
-          <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-1.5">
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block flex items-center gap-1.5">
-              <Lightbulb className="w-3.5 h-3.5 text-blue-400" />
-              <span>{t('Рекомендация по выполнению:')}</span>
-            </span>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
-              {tx(currentStepData.guidanceTip)}
-            </p>
-          </div>
-
-          {/* Subtasks with interactive check */}
-          {activeRoadmapStep && (
-            <div className="pt-2 space-y-2">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                {t('Контрольные действия:')}
-              </span>
-              <div className="space-y-2">
-                {activeRoadmapStep.subtasks.map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={() => onToggleSubtask(activeRoadmapStep.id, task.id)}
-                    className={`p-3.5 rounded-xl border transition flex items-center justify-between gap-3 cursor-pointer select-none
-                      ${task.isCompleted 
-                        ? 'bg-slate-800/40 border-slate-700 text-slate-400' 
-                        : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-white'}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center transition
-                        ${task.isCompleted ? 'bg-slate-200 border-slate-200 text-slate-900' : 'border-slate-500 bg-transparent'}`}>
-                        {task.isCompleted && <Check className="w-3.5 h-3.5" />}
-                      </div>
-                      <span className={`text-xs sm:text-sm font-medium ${task.isCompleted ? 'line-through text-slate-400' : 'text-white'}`}>
-                        {tx(task.title)}
-                      </span>
-                    </div>
-
-                    <span className="text-[10px] uppercase font-semibold text-slate-400 px-2 py-0.5 rounded bg-slate-900">
-                      {t(task.isCompleted ? 'Выполнено' : 'Отметить')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
+            <Calendar className="w-3.5 h-3.5 shrink-0" />
+            <span>{t('Контрольный срок')}: <strong className="font-semibold text-slate-900 dark:text-white">{tx(currentStepData.deadline)}</strong></span>
+          </span>
         </div>
+
+        <h3 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white leading-snug">
+          {tx(currentStepData.stepTitle)}
+        </h3>
+
+        <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-blue-100 dark:border-blue-500/20 space-y-1.5">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-[0.06em] flex items-center gap-1.5">
+            <Lightbulb className="w-3.5 h-3.5 text-blue-600 dark:text-blue-300" />
+            <span>{t('Рекомендация по выполнению:')}</span>
+          </span>
+          <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">
+            {tx(currentStepData.guidanceTip)}
+          </p>
+        </div>
+
+        {/* Subtasks with interactive check */}
+        {activeRoadmapStep && (
+          <div className="space-y-2">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-[0.06em] block">
+              {t('Контрольные действия:')}
+            </span>
+            <div className="space-y-2">
+              {activeRoadmapStep.subtasks.map((task) => (
+                <button
+                  key={task.id}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={task.isCompleted}
+                  onClick={() => onToggleSubtask(activeRoadmapStep.id, task.id)}
+                  className="w-full text-left min-h-12 px-3.5 py-3 rounded-xl border border-[var(--line)] bg-white dark:bg-zinc-900 hover:border-[var(--line-strong)] hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition flex items-center justify-between gap-3"
+                >
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition
+                      ${task.isCompleted ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'border-slate-300 dark:border-zinc-600'}`}>
+                      {task.isCompleted && <Check className="w-3.5 h-3.5" />}
+                    </span>
+                    <span className={`text-sm font-medium ${task.isCompleted ? 'line-through text-slate-400 dark:text-zinc-500' : 'text-slate-800 dark:text-zinc-100'}`}>
+                      {tx(task.title)}
+                    </span>
+                  </span>
+
+                  <span className={`ar-badge shrink-0 ${task.isCompleted ? 'ar-badge-green' : ''}`}>
+                    {t(task.isCompleted ? 'Выполнено' : 'Отметить')}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* Actionable Micro-Tools Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        
+
         {/* Tool 1: Recommendation Letter Template */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
+        <div className="ar-card p-5 flex flex-col justify-between gap-4">
           <div className="space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-              <Mail className="w-4 h-4" />
-            </div>
-            <h4 className="text-sm font-bold text-slate-900">
+            <span className="ar-icon-tile">
+              <Mail className="w-[18px] h-[18px]" />
+            </span>
+            <h4 className="text-base font-semibold text-slate-900 dark:text-white pt-1">
               {t('Запрос рекомендательного письма')}
             </h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
               {t('Деловой шаблон официального обращения к учителю или научному руководителю.')}
             </p>
           </div>
 
           <button
+            type="button"
             onClick={() => setShowRecommendationTemplate(!showRecommendationTemplate)}
-            className="w-full mt-2 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+            aria-expanded={showRecommendationTemplate}
+            className="ar-btn ar-btn-secondary w-full"
           >
-            <FileText className="w-3.5 h-3.5 text-slate-600" />
+            <FileText className="w-4 h-4" />
             <span>{t(showRecommendationTemplate ? 'Скрыть шаблон' : 'Открыть шаблон письма')}</span>
           </button>
         </div>
 
         {/* Tool 2: Essay Architect */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
+        <div className="ar-card p-5 flex flex-col justify-between gap-4">
           <div className="space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-              <FileText className="w-4 h-4" />
-            </div>
-            <h4 className="text-sm font-bold text-slate-900">
+            <span className="ar-icon-tile">
+              <FileText className="w-[18px] h-[18px]" />
+            </span>
+            <h4 className="text-base font-semibold text-slate-900 dark:text-white pt-1">
               {t('Структура мотивационного эссе')}
             </h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
               {t('Модульный план Personal Statement для зарубежных университетов и NU.')}
             </p>
           </div>
 
           <button
+            type="button"
             onClick={onOpenEssayModal}
-            className="w-full mt-2 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+            className="ar-btn ar-btn-secondary w-full"
           >
-            <FileText className="w-3.5 h-3.5 text-slate-600" />
+            <FileText className="w-4 h-4" />
             <span>{t('Структура эссе')}</span>
           </button>
         </div>
 
         {/* Tool 3: Calendar & ICS */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between">
+        <div className="ar-card p-5 flex flex-col justify-between gap-4">
           <div className="space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <h4 className="text-sm font-bold text-slate-900">
+            <span className="ar-icon-tile">
+              <Calendar className="w-[18px] h-[18px]" />
+            </span>
+            <h4 className="text-base font-semibold text-slate-900 dark:text-white pt-1">
               {t('Сводный календарь контрольных дат')}
             </h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
               {t('График дедлайнов приемных кампаний с возможностью экспорта в календарь.')}
             </p>
           </div>
 
           <button
+            type="button"
             onClick={onOpenCalendarModal}
-            className="w-full mt-2 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+            className="ar-btn ar-btn-secondary w-full"
           >
-            <Calendar className="w-3.5 h-3.5 text-slate-600" />
+            <Calendar className="w-4 h-4" />
             <span>{t('График дедлайнов')}</span>
           </button>
         </div>
@@ -249,44 +258,48 @@ export const Step7NextAction: React.FC<Step7NextActionProps> = ({
 
       {/* Expandable Teacher Email Template Box */}
       {showRecommendationTemplate && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+        <div className="ar-card p-5 sm:p-6 space-y-4 animate-fadeIn">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h4 className="text-base font-semibold text-slate-900 dark:text-white min-w-0">
               {t('Шаблон обращения за академической рекомендацией:')}
-            </span>
+            </h4>
             <button
+              type="button"
               onClick={handleCopyTemplate}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition"
+              className="ar-btn ar-btn-primary ar-btn-sm"
             >
-              {copiedTemplate ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedTemplate ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               <span>{t(copiedTemplate ? 'Скопировано' : 'Копировать')}</span>
             </button>
           </div>
 
-          <pre className="p-4 rounded-xl bg-slate-50 border border-slate-200 font-sans text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+          <pre className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-[var(--line)] font-sans text-sm text-slate-700 dark:text-zinc-300 whitespace-pre-wrap break-words leading-relaxed">
             {tx(teacherEmailTemplate)}
           </pre>
         </div>
       )}
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-6 border-t border-slate-200">
+      {!embedded && (
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-5 border-t border-[var(--line)]">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition"
+          className="ar-btn ar-btn-secondary w-full sm:w-auto"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>{t('steps.7.back')}</span>
         </button>
 
         <button
+          type="button"
           onClick={onRestart}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition"
+          className="ar-btn ar-btn-primary w-full sm:w-auto"
         >
           <span>{t('steps.7.next')}</span>
         </button>
       </div>
+      )}
 
     </div>
   );

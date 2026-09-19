@@ -4,7 +4,7 @@ import { asyncHandler } from '../utils/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { aiLimiter } from '../middleware/rateLimit.js';
 import { listItems, createItem, updateItem, deleteItem, scorePortfolio, tierForScore, scoreItem } from '../services/portfolio.service.js';
-import { evaluatePortfolio } from '../services/ai.service.js';
+import { evaluatePortfolio, portfolioFeedback } from '../services/ai.service.js';
 import { getProfile } from '../services/auth.service.js';
 import { PORTFOLIO_ITEM_TYPES, PORTFOLIO_LEVELS, PORTFOLIO_RESULTS, PORTFOLIO_CRITERIA, FIELD_LIST, FIELD_RUBRICS, fieldForMajors } from '../../shared/data/portfolioRubrics.js';
 import { pickLang } from './universities.routes.js';
@@ -78,5 +78,23 @@ portfolioRouter.post(
       uiState: b.uiState && typeof b.uiState === 'object' ? b.uiState : undefined,
     });
     res.json(result);
+  }),
+);
+
+/** Body: { universityIds?, profile?, uiState? } — concrete AI feedback against the published criteria. */
+portfolioRouter.post(
+  '/feedback',
+  aiLimiter,
+  asyncHandler(async (req, res) => {
+    const b = req.body || {};
+    res.json(
+      await portfolioFeedback({
+        userId: req.user.id,
+        profile: await resolveProfile(req),
+        universityIds: Array.isArray(b.universityIds) ? b.universityIds.map(String).slice(0, 6) : [],
+        language: pickLang(req),
+        uiState: b.uiState && typeof b.uiState === 'object' ? b.uiState : undefined,
+      }),
+    );
   }),
 );

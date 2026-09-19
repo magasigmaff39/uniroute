@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bot, X, Send, User, Sparkles, Loader2, Trash2, ExternalLink, ListPlus, AlertTriangle, Square, ThumbsUp, ThumbsDown, ShieldCheck } from 'lucide-react';
+import { Bot, X, Send, User, MessageSquareText, ScanSearch, Loader2, Trash2, ExternalLink, ListPlus, AlertTriangle, Square, ThumbsUp, ThumbsDown, ShieldCheck } from 'lucide-react';
 import type { ApplicantProfile, ChatMessage, TaskCategory } from '../types';
 import { aiApi, tasksApi, feedbackApi, chatStream, ApiError, type ApplicantAnalysis, type EssayReview } from '../lib/api';
 import { useI18n } from '../i18n/I18nContext';
@@ -234,96 +234,140 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
   };
 
   const tierClass = (tier: string) =>
-    tier === 'Dream' ? 'bg-slate-100 text-slate-800 border-slate-300' : tier === 'Target' ? 'bg-blue-50 text-blue-800 border-blue-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200';
+    tier === 'Dream'
+      ? 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/25'
+      : tier === 'Target'
+        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/25'
+        : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/25';
+
+  // Small uppercase label used above blocks of the analysis / essay review.
+  const microLabel = 'text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-zinc-400';
+  const panel = 'p-3.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)]';
 
   return (
     <>
-      {/* Floating Action Button */}
+      {/* Floating launcher (.ar-fab keeps it above the phone tab bar) */}
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 z-40 w-14 h-14 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-105 hover:bg-slate-800 transition-all duration-300 animate-fadeInUp ${isOpen ? 'opacity-0 pointer-events-none scale-75' : 'opacity-100'}`}
+        className={`ar-fab fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 dark:bg-blue-500 dark:hover:bg-blue-600 transition-[background-color,box-shadow,opacity] duration-200 animate-fadeInUp ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         aria-label={t('ai.title')}
+        title={t('ai.title')}
+        aria-expanded={isOpen}
       >
-        <Sparkles className="w-6 h-6" />
+        <MessageSquareText className="w-6 h-6" />
       </button>
 
-      {/* Chat Window */}
+      {/* Chat window: a floating panel on tablets/desktop, nearly full screen on phones */}
       <div
-        className={`fixed bottom-6 right-6 z-50 w-[min(100vw-1.5rem,460px)] h-[640px] max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col transition-all duration-300 origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}
+        role="dialog"
+        aria-label={t('ai.title')}
+        className={`fixed z-50 inset-2 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[440px] sm:max-w-[calc(100vw-3rem)] sm:h-[640px] max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-3rem)] flex flex-col overflow-hidden bg-[var(--surface-raised)] rounded-2xl border border-[var(--line)] shadow-[var(--shadow-overlay)] origin-bottom-right transition-[opacity,transform,visibility] duration-200 ${isOpen ? 'opacity-100 translate-y-0 scale-100' : 'invisible opacity-0 translate-y-2 scale-[0.98] pointer-events-none'}`}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-900 rounded-t-3xl text-white">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <Bot className="w-4 h-4 text-blue-300" />
-            </div>
-            <div>
-              <div className="text-sm font-bold">{t('ai.title')}</div>
-              <div className="text-[10px] text-blue-200">{aiConfigured === false ? t('ai.offline') : t('ai.subtitle')}</div>
+        <div className="shrink-0 pl-4 pr-2 py-2.5 border-b border-[var(--line)] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="ar-icon-tile">
+              <Bot className="w-[18px] h-[18px]" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight truncate">{t('ai.title')}</h2>
+              <p className={`text-xs truncate ${aiConfigured === false ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-zinc-400'}`}>{aiConfigured === false ? t('ai.offline') : t('ai.subtitle')}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 shrink-0">
             {tab === 'chat' && (
-              <button onClick={handleClear} className="p-1.5 hover:bg-white/10 rounded-full transition" title={t('ai.clear')}>
-                <Trash2 className="w-4 h-4 text-slate-300" />
+              <button type="button" onClick={handleClear} className="ar-btn ar-btn-icon" title={t('ai.clear')} aria-label={t('ai.clear')}>
+                <Trash2 className="w-4 h-4" />
               </button>
             )}
-            <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-white/10 rounded-full transition">
-              <X className="w-5 h-5 text-slate-300" />
+            <button type="button" onClick={() => setIsOpen(false)} className="ar-btn ar-btn-icon" title={t('common.close')} aria-label={t('common.close')}>
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="px-3 pt-2 flex gap-1 bg-slate-50/50 border-b border-slate-100">
-          {(['chat', 'analyze', 'essay'] as Tab[]).map((k) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`px-3 py-1.5 rounded-t-lg text-[11px] font-semibold transition ${tab === k ? 'bg-white text-slate-900 border border-b-0 border-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
-            >
-              {t(`ai.tab.${k}`)}
-            </button>
-          ))}
+        <div className="shrink-0 px-3 py-2 border-b border-[var(--line)]">
+          <div role="tablist" className="flex p-1 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-[var(--line)] overflow-x-auto hide-scrollbar">
+            {(['chat', 'analyze', 'essay'] as Tab[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={tab === k}
+                onClick={() => setTab(k)}
+                className={`flex-1 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                  tab === k ? 'bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white'
+                }`}
+              >
+                {t(`ai.tab.${k}`)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* CHAT */}
         {tab === 'chat' && (
           <>
-            <div ref={scrollRef} className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50/50">
+            <div ref={scrollRef} className="flex-1 min-h-0 p-3 sm:p-4 overflow-y-auto overflow-x-hidden space-y-4 bg-[var(--surface-subtle)]">
               {messages.map((m, idx) => (
-                <div key={idx} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${m.role === 'user' ? 'bg-slate-200' : 'bg-slate-900'}`}>
-                    {m.role === 'user' ? <User className="w-3.5 h-3.5 text-slate-600" /> : <Bot className="w-3.5 h-3.5 text-white" />}
+                <div key={idx} className={`flex gap-2.5 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                      m.role === 'user' ? 'bg-slate-200 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300' : 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'
+                    }`}
+                  >
+                    {m.role === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
                   </div>
-                  <div className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-xs leading-relaxed ${m.role === 'user' ? 'bg-slate-900 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm shadow-xs'}`}>
+                  <div
+                    className={`min-w-0 max-w-[85%] px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed break-words ${
+                      m.role === 'user'
+                        ? 'bg-blue-600 text-white rounded-tr-md dark:bg-blue-500'
+                        : 'bg-[var(--surface-raised)] border border-[var(--line)] text-slate-800 dark:text-zinc-200 rounded-tl-md shadow-[var(--shadow-card)]'
+                    }`}
+                  >
                     {m.role === 'user' ? m.content : m.content ? <Markdown text={m.content} compact /> : null}
                     {m.role === 'assistant' && m.streaming && (
-                      <span className="inline-flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
-                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-pulse" />
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 mt-1" aria-live="polite">
+                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                         {status || t('ai.status.thinking')}
                       </span>
                     )}
                     {m.role === 'assistant' && !m.streaming && m.content && idx > 0 && (
-                      <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center gap-1.5 text-[10px] text-slate-400">
+                      <div className="mt-2 pt-1.5 border-t border-[var(--line)] flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400">
                         {m.verified && (
-                          <span className="inline-flex items-center gap-1 text-emerald-700" title={t('ai.verifiedHint')}>
+                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400" title={t('ai.verifiedHint')}>
                             <ShieldCheck className="w-3 h-3" /> {t('ai.verified')}
                           </span>
                         )}
                         <span className="ml-auto flex items-center gap-0.5">
-                          <button type="button" onClick={() => sendFeedback(idx, 'up')} className={`p-1 rounded hover:bg-slate-100 ${m.feedback === 'up' ? 'text-emerald-600' : ''}`} title={t('ai.feedback.up')}>
-                            <ThumbsUp className="w-3 h-3" />
+                          <button
+                            type="button"
+                            onClick={() => sendFeedback(idx, 'up')}
+                            aria-pressed={m.feedback === 'up'}
+                            className={`p-1.5 rounded-lg transition hover:bg-slate-100 dark:hover:bg-zinc-800 ${m.feedback === 'up' ? 'text-emerald-600 dark:text-emerald-400' : 'hover:text-slate-700 dark:hover:text-zinc-200'}`}
+                            title={t('ai.feedback.up')}
+                            aria-label={t('ai.feedback.up')}
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
                           </button>
-                          <button type="button" onClick={() => sendFeedback(idx, 'down')} className={`p-1 rounded hover:bg-slate-100 ${m.feedback === 'down' ? 'text-rose-600' : ''}`} title={t('ai.feedback.down')}>
-                            <ThumbsDown className="w-3 h-3" />
+                          <button
+                            type="button"
+                            onClick={() => sendFeedback(idx, 'down')}
+                            aria-pressed={m.feedback === 'down'}
+                            className={`p-1.5 rounded-lg transition hover:bg-slate-100 dark:hover:bg-zinc-800 ${m.feedback === 'down' ? 'text-rose-600 dark:text-rose-400' : 'hover:text-slate-700 dark:hover:text-zinc-200'}`}
+                            title={t('ai.feedback.down')}
+                            aria-label={t('ai.feedback.down')}
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
                           </button>
                         </span>
                       </div>
                     )}
                     {m.sources && m.sources.length > 0 && (
-                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
-                        <span className="text-[10px] text-slate-400 font-medium">{t('ai.sources')}:</span>
+                      <div className="mt-2.5 pt-2 border-t border-[var(--line)] flex flex-wrap gap-1.5 items-center">
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">{t('ai.sources')}:</span>
                         {m.sources.slice(0, 5).map((s) => {
                           const uni = UNIVERSITY_DATABASE.find(
                             (u) =>
@@ -339,10 +383,10 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
                               href={s}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-blue-50/80 text-blue-700 hover:bg-blue-100 hover:text-blue-900 border border-blue-200/60 font-medium transition-colors"
+                              className="inline-flex items-center gap-1 max-w-full text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border border-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20 dark:hover:bg-blue-500/20 dark:hover:text-blue-200 font-medium transition-colors"
                             >
-                              <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                              {label}
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{label}</span>
                             </a>
                           );
                         })}
@@ -354,11 +398,11 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
 
             </div>
 
-            <div className="p-3 bg-white border-t border-slate-100 rounded-b-3xl space-y-2">
+            <div className="shrink-0 p-3 bg-[var(--surface-raised)] border-t border-[var(--line)] space-y-2">
               {suggestions.length > 0 && !isTyping && (
                 <div className="flex flex-wrap gap-1.5">
                   {suggestions.map((sug) => (
-                    <button key={sug} type="button" onClick={() => void sendMessage(sug)} className="px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 text-[11px] text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition text-left">
+                    <button key={sug} type="button" onClick={() => void sendMessage(sug)} className="ar-chip max-w-full min-h-8 px-3 py-1 text-xs text-left">
                       {sug}
                     </button>
                   ))}
@@ -370,14 +414,15 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={t('ai.placeholder')}
-                  className="flex-1 bg-slate-100 border-none rounded-xl px-4 py-2.5 text-xs focus:ring-2 focus:ring-slate-900 transition-all outline-none"
+                  aria-label={t('ai.placeholder')}
+                  className="ar-input flex-1 min-w-0"
                 />
                 {isTyping ? (
-                  <button type="button" onClick={handleStop} className="w-9 h-9 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-300 transition" title={t('ai.stop')}>
+                  <button type="button" onClick={handleStop} className="ar-btn ar-btn-secondary w-11 h-11 p-0 shrink-0" title={t('ai.stop')} aria-label={t('ai.stop')}>
                     <Square className="w-3.5 h-3.5" />
                   </button>
                 ) : (
-                  <button type="submit" disabled={!input.trim()} className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center disabled:opacity-50 hover:bg-slate-800 transition">
+                  <button type="submit" disabled={!input.trim()} aria-label={t('ai.send')} title={t('ai.send')} className="ar-btn ar-btn-primary w-11 h-11 p-0 shrink-0">
                     <Send className="w-4 h-4" />
                   </button>
                 )}
@@ -388,66 +433,79 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
 
         {/* ANALYZE */}
         {tab === 'analyze' && (
-          <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50 text-xs rounded-b-3xl">
+          <div ref={scrollRef} className="flex-1 min-h-0 p-3 sm:p-4 overflow-y-auto overflow-x-hidden space-y-3 bg-[var(--surface-subtle)] text-xs break-words">
             {!analysis && (
               <>
-                <p className="text-slate-600 leading-relaxed">{t('ai.analyze.intro')}</p>
+                <p className="text-[13px] text-slate-600 dark:text-zinc-400 leading-relaxed">{t('ai.analyze.intro')}</p>
                 <textarea
                   value={freeText}
                   onChange={(e) => setFreeText(e.target.value)}
                   placeholder={t('ai.analyze.freeText')}
+                  aria-label={t('ai.analyze.freeText')}
                   rows={4}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-slate-900 outline-none"
+                  className="ar-input"
                 />
-                <button
-                  onClick={runAnalysis}
-                  disabled={analyzing || !profile}
-                  className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {analyzing ? <><Loader2 className="w-4 h-4 animate-spin" /> {analyzeCaption || t('ai.analyze.running')}</> : <><Sparkles className="w-4 h-4" /> {t('ai.analyze.run')}</>}
+                <button type="button" onClick={runAnalysis} disabled={analyzing || !profile} aria-busy={analyzing} className="ar-btn ar-btn-primary w-full">
+                  {analyzing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> <span className="truncate">{analyzeCaption || t('ai.analyze.running')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <ScanSearch className="w-4 h-4" /> {t('ai.analyze.run')}
+                    </>
+                  )}
                 </button>
-                {analysisError && <p className="text-rose-600">{analysisError}</p>}
+                {analysisError && (
+                  <p role="alert" className="ar-notice ar-notice-error">
+                    {analysisError}
+                  </p>
+                )}
               </>
             )}
 
             {analysis && (
               <>
-                <div className="p-3 rounded-xl bg-white border border-slate-200">
-                  <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-1">{t('ai.analyze.summary')}</div>
+                <div className={panel}>
+                  <div className={`${microLabel} mb-1.5`}>{t('ai.analyze.summary')}</div>
                   <Markdown text={analysis.summary} compact />
-                  <div className="text-[10px] text-slate-400 mt-1">model: {analysis.model}</div>
+                  <div className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1.5">model: {analysis.model}</div>
                 </div>
 
-                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">{t('ai.analyze.ranked')}</div>
+                <div className={`${microLabel} pt-1`}>{t('ai.analyze.ranked')}</div>
                 {analysis.ranked.map((r) => (
-                  <div key={r.id} className="p-3 rounded-xl bg-white border border-slate-200 space-y-1.5">
+                  <div key={r.id} className={`${panel} space-y-2`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="font-bold text-slate-900">{r.name}</div>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border shrink-0 ${tierClass(r.tier)}`}>{r.tier}</span>
+                      <div className="min-w-0 text-[13px] font-semibold text-slate-900 dark:text-white">{r.name}</div>
+                      <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border shrink-0 ${tierClass(r.tier)}`}>{r.tier}</span>
                     </div>
-                    <div className="flex gap-3 text-[11px] text-slate-600">
-                      <span>{t('ai.analyze.fit')}: <strong className="text-slate-900">{r.fitScore}%</strong></span>
-                      <span>{t('ai.analyze.chance')}: <strong className="text-slate-900">{r.chance}%</strong></span>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-zinc-400">
+                      <span>
+                        {t('ai.analyze.fit')}: <strong className="font-semibold text-slate-900 dark:text-white tabular-nums">{r.fitScore}%</strong>
+                      </span>
+                      <span>
+                        {t('ai.analyze.chance')}: <strong className="font-semibold text-slate-900 dark:text-white tabular-nums">{r.chance}%</strong>
+                      </span>
                     </div>
                     {r.reasons?.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-semibold text-emerald-700">{t('ai.analyze.reasons')}</div>
-                        <ul className="list-disc pl-4 text-slate-700 space-y-0.5">{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                        <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mb-0.5">{t('ai.analyze.reasons')}</div>
+                        <ul className="list-disc pl-4 text-slate-700 dark:text-zinc-300 space-y-0.5 marker:text-slate-400">{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>
                       </div>
                     )}
                     {r.risks?.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-semibold text-rose-700">{t('ai.analyze.risks')}</div>
-                        <ul className="list-disc pl-4 text-slate-700 space-y-0.5">{r.risks.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                        <div className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 mb-0.5">{t('ai.analyze.risks')}</div>
+                        <ul className="list-disc pl-4 text-slate-700 dark:text-zinc-300 space-y-0.5 marker:text-slate-400">{r.risks.map((x, i) => <li key={i}>{x}</li>)}</ul>
                       </div>
                     )}
                     {r.healthAndLifestyle && (
-                      <div className="text-[11px] text-slate-600 border-t border-slate-100 pt-1.5">
-                        <span className="font-semibold">{t('ai.analyze.health')}:</span> {r.healthAndLifestyle}
+                      <div className="text-xs text-slate-600 dark:text-zinc-400 border-t border-[var(--line)] pt-2">
+                        <span className="font-semibold text-slate-700 dark:text-zinc-300">{t('ai.analyze.health')}:</span> {r.healthAndLifestyle}
                       </div>
                     )}
                     {r.links?.website && (
-                      <a href={r.links.admissions || r.links.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-700 hover:underline">
+                      <a href={r.links.admissions || r.links.website} target="_blank" rel="noreferrer" className="ar-link text-xs">
                         <ExternalLink className="w-3 h-3" /> {t('common.officialPortal')}
                       </a>
                     )}
@@ -455,25 +513,27 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
                 ))}
 
                 {analysis.redFlags?.length > 0 && (
-                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                    <div className="text-[10px] uppercase tracking-wider font-semibold text-amber-800 mb-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {t('ai.analyze.redFlags')}</div>
-                    <ul className="list-disc pl-4 text-amber-900 space-y-0.5">{analysis.redFlags.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/25">
+                    <div className="text-[11px] uppercase tracking-[0.06em] font-semibold text-amber-800 dark:text-amber-300 mb-1.5 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" /> {t('ai.analyze.redFlags')}
+                    </div>
+                    <ul className="list-disc pl-4 text-amber-900 dark:text-amber-100 space-y-0.5">{analysis.redFlags.map((x, i) => <li key={i}>{x}</li>)}</ul>
                   </div>
                 )}
 
                 {analysis.nextSteps?.length > 0 && (
-                  <div className="p-3 rounded-xl bg-white border border-slate-200">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">{t('ai.analyze.nextSteps')}</div>
-                      <button onClick={addStepsToTasks} className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 hover:underline">
-                        <ListPlus className="w-3 h-3" /> {t('ai.analyze.addTasks')}
+                  <div className={panel}>
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
+                      <div className={microLabel}>{t('ai.analyze.nextSteps')}</div>
+                      <button type="button" onClick={addStepsToTasks} className="ar-link text-xs">
+                        <ListPlus className="w-3.5 h-3.5" /> {t('ai.analyze.addTasks')}
                       </button>
                     </div>
-                    <ul className="space-y-1">
+                    <ul className="space-y-1.5">
                       {analysis.nextSteps.map((s, i) => (
-                        <li key={i} className="flex items-start justify-between gap-2 text-slate-700">
-                          <span>{s.title}</span>
-                          <span className="text-[10px] text-slate-400 shrink-0">{s.deadline}</span>
+                        <li key={i} className="flex items-start justify-between gap-2 text-slate-700 dark:text-zinc-300">
+                          <span className="min-w-0">{s.title}</span>
+                          <span className="text-[11px] text-slate-500 dark:text-zinc-400 shrink-0 tabular-nums">{s.deadline}</span>
                         </li>
                       ))}
                     </ul>
@@ -481,13 +541,13 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
                 )}
 
                 {analysis.testStrategy && (
-                  <div className="p-3 rounded-xl bg-white border border-slate-200">
-                    <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-1">{t('ai.analyze.testStrategy')}</div>
+                  <div className={panel}>
+                    <div className={`${microLabel} mb-1.5`}>{t('ai.analyze.testStrategy')}</div>
                     <Markdown text={analysis.testStrategy} compact />
                   </div>
                 )}
 
-                <button onClick={() => setAnalysis(null)} className="w-full py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50">
+                <button type="button" onClick={() => setAnalysis(null)} className="ar-btn ar-btn-secondary w-full">
                   {t('common.retry')}
                 </button>
               </>
@@ -497,9 +557,9 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
 
         {/* ESSAY */}
         {tab === 'essay' && (
-          <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50 text-xs rounded-b-3xl">
-            <p className="text-slate-600 leading-relaxed">{t('ai.essay.intro')}</p>
-            <select value={essayUni} onChange={(e) => setEssayUni(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none">
+          <div ref={scrollRef} className="flex-1 min-h-0 p-3 sm:p-4 overflow-y-auto overflow-x-hidden space-y-3 bg-[var(--surface-subtle)] text-xs break-words">
+            <p className="text-[13px] text-slate-600 dark:text-zinc-400 leading-relaxed">{t('ai.essay.intro')}</p>
+            <select value={essayUni} onChange={(e) => setEssayUni(e.target.value)} aria-label={t('ai.essay.university')} className="ar-input">
               <option value="">{t('ai.essay.university')}</option>
               {UNIVERSITY_DATABASE.map((u) => (
                 <option key={u.id} value={u.id}>{u.shortName} — {u.country}</option>
@@ -509,42 +569,49 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({ profile, i
               value={essay}
               onChange={(e) => setEssay(e.target.value)}
               placeholder={t('ai.essay.placeholder')}
+              aria-label={t('ai.essay.placeholder')}
               rows={7}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-slate-900 outline-none"
+              className="ar-input leading-relaxed"
             />
-            <button
-              onClick={runEssayReview}
-              disabled={essayLoading || essay.trim().length < 80}
-              className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {essayLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('ai.analyze.running')}</> : t('ai.essay.run')}
+            <button type="button" onClick={runEssayReview} disabled={essayLoading || essay.trim().length < 80} aria-busy={essayLoading} className="ar-btn ar-btn-primary w-full">
+              {essayLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> {t('ai.analyze.running')}
+                </>
+              ) : (
+                t('ai.essay.run')
+              )}
             </button>
-            {essayError && <p className="text-rose-600">{essayError}</p>}
+            {essayError && (
+              <p role="alert" className="ar-notice ar-notice-error">
+                {essayError}
+              </p>
+            )}
             {essayResult && (
-              <div className="space-y-2">
-                <div className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
-                  <span className="font-semibold text-slate-800">{t('ai.essay.score')}</span>
-                  <span className="text-lg font-bold font-mono text-slate-900">{essayResult.score ?? '—'}/10</span>
+              <div className="space-y-2.5">
+                <div className={`${panel} flex items-center justify-between gap-3`}>
+                  <span className="text-[13px] font-semibold text-slate-800 dark:text-zinc-200">{t('ai.essay.score')}</span>
+                  <span className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">{essayResult.score ?? '—'}/10</span>
                 </div>
-                {essayResult.verdict && <p className="text-slate-700 px-1">{essayResult.verdict}</p>}
+                {essayResult.verdict && <p className="text-[13px] text-slate-700 dark:text-zinc-300 leading-relaxed px-1">{essayResult.verdict}</p>}
                 {[
-                  ['strengths', 'text-emerald-700', essayResult.strengths],
-                  ['weaknesses', 'text-rose-700', essayResult.weaknesses],
-                  ['suggestions', 'text-blue-700', essayResult.suggestions],
-                  ['missedStories', 'text-violet-700', essayResult.missedStories || []],
-                  ['redFlags', 'text-amber-700', essayResult.redFlags || []],
+                  ['strengths', 'text-emerald-700 dark:text-emerald-400', essayResult.strengths],
+                  ['weaknesses', 'text-rose-700 dark:text-rose-400', essayResult.weaknesses],
+                  ['suggestions', 'text-blue-700 dark:text-blue-300', essayResult.suggestions],
+                  ['missedStories', 'text-violet-700 dark:text-violet-300', essayResult.missedStories || []],
+                  ['redFlags', 'text-amber-700 dark:text-amber-400', essayResult.redFlags || []],
                 ].map(([key, cls, items]) =>
                   (items as string[])?.length ? (
-                    <div key={key as string} className="p-3 rounded-xl bg-white border border-slate-200">
-                      <div className={`text-[10px] uppercase tracking-wider font-semibold mb-1 ${cls}`}>{t(`ai.essay.${key}`)}</div>
-                      <ul className="list-disc pl-4 text-slate-700 space-y-0.5">{(items as string[]).map((x, i) => <li key={i}>{x}</li>)}</ul>
+                    <div key={key as string} className={panel}>
+                      <div className={`text-[11px] uppercase tracking-[0.06em] font-semibold mb-1.5 ${cls}`}>{t(`ai.essay.${key}`)}</div>
+                      <ul className="list-disc pl-4 text-slate-700 dark:text-zinc-300 space-y-0.5 marker:text-slate-400">{(items as string[]).map((x, i) => <li key={i}>{x}</li>)}</ul>
                     </div>
                   ) : null,
                 )}
                 {essayResult.rewriteOpening && (
-                  <div className="p-3 rounded-xl bg-white border border-slate-200">
-                    <div className="text-[10px] uppercase tracking-wider font-semibold mb-1 text-slate-600">{t('ai.essay.rewriteOpening')}</div>
-                    <p className="text-slate-700 leading-relaxed italic">{essayResult.rewriteOpening}</p>
+                  <div className={panel}>
+                    <div className={`${microLabel} mb-1.5`}>{t('ai.essay.rewriteOpening')}</div>
+                    <p className="text-slate-700 dark:text-zinc-300 leading-relaxed italic">{essayResult.rewriteOpening}</p>
                   </div>
                 )}
               </div>

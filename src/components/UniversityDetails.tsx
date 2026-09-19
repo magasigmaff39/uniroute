@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Globe, Send, ExternalLink, ShieldCheck, FlaskConical, Home, Rocket, Users,
   ThumbsUp, ThumbsDown, AlertTriangle, CloudSun, Utensils, Languages as LanguagesIcon, BarChart3, Target,
-  Newspaper, Share2, Loader2, BookOpen, Wind,
+  Newspaper, Share2, Loader2, BookOpen, Wind, Briefcase,
 } from 'lucide-react';
 import type { ApplicantProfile, University } from '../types';
 import { estimateWithProjections } from '../../shared/logic/chance.js';
@@ -44,27 +44,36 @@ const TikTokIcon = ({ className }: { className?: string }) => (
 );
 
 const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = ({ icon, title, children }) => (
-  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600">
-      {icon}
+  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-[var(--line)] space-y-2 min-w-0">
+    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-300">
+      <span className="text-slate-500 dark:text-zinc-400 shrink-0">{icon}</span>
       {title}
     </div>
-    <div className="text-xs text-slate-700 leading-relaxed">{children}</div>
+    <div className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">{children}</div>
   </div>
 );
 
 const Chips: React.FC<{ items: string[]; tone?: 'neutral' | 'good' | 'bad' | 'warn' }> = ({ items, tone = 'neutral' }) => {
   const { tx } = useI18n();
   const cls =
-    tone === 'good' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : tone === 'bad' ? 'bg-rose-50 text-rose-800 border-rose-200' : tone === 'warn' ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-white text-slate-700 border-slate-200';
+    tone === 'good'
+      ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:border-emerald-500/25'
+      : tone === 'bad'
+        ? 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:border-rose-500/25'
+        : tone === 'warn'
+          ? 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:border-amber-500/25'
+          : 'bg-white text-slate-700 border-slate-200 dark:text-zinc-300';
   return (
     <div className="flex flex-wrap gap-1.5">
       {items.map((x, i) => (
-        <span key={i} className={`px-2 py-0.5 rounded-md text-[11px] border ${cls}`}>{tx(x)}</span>
+        <span key={i} className={`px-2 py-0.5 rounded-md text-xs leading-5 border ${cls}`}>{tx(x)}</span>
       ))}
     </div>
   );
 };
+
+const microLabel = 'text-[11px] uppercase tracking-[0.06em] font-semibold text-slate-500 dark:text-zinc-400';
+const textLink = 'text-blue-700 dark:text-blue-300 hover:underline underline-offset-2';
 
 export const UniversityDetails: React.FC<UniversityDetailsProps> = ({ uni, profile }) => {
   const { t, tx, lang } = useI18n();
@@ -126,17 +135,28 @@ export const UniversityDetails: React.FC<UniversityDetailsProps> = ({ uni, profi
   const links = uni.links;
   const safety = uni.campus?.neighborhoodSafety ?? 0;
   const safetyTone = safety >= 8 ? 'bg-emerald-500' : safety >= 6 ? 'bg-amber-500' : 'bg-rose-500';
-  const probTone = estimate.probability >= 60 ? 'text-emerald-700' : estimate.probability >= 30 ? 'text-blue-700' : 'text-slate-700';
+  const probTone = estimate.probability >= 60 ? 'text-emerald-700 dark:text-emerald-300' : estimate.probability >= 30 ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-zinc-200';
 
   return (
-    <div className="px-6 pb-6 space-y-3 animate-fadeIn border-t border-slate-100 pt-4">
+    <div className="px-5 sm:px-6 pb-6 pt-5 space-y-3 animate-fadeIn border-t border-[var(--line)]">
+      <div className="flex flex-wrap items-center gap-1.5 pb-1">
+        <span className="ar-badge ar-badge-blue">
+          {uni.category === 'school' ? t('category.school') : uni.category === 'college' ? t('category.college') : t('category.university')}
+        </span>
+        {uni.gradeLevel && (
+          <span className="ar-badge whitespace-normal">
+            {uni.gradeLevel}
+          </span>
+        )}
+      </div>
+
       {/* Translated description (kk/en) */}
       {lang !== 'ru' && (
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-xs text-slate-700 leading-relaxed flex-1">{translated?.description || tx(uni.description)}</p>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
+          <p className="text-sm text-slate-700 dark:text-zinc-300 leading-relaxed flex-1 min-w-0">{translated?.description || tx(uni.description)}</p>
           {!translated && (
-            <button onClick={translateTexts} disabled={translating} className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:underline disabled:opacity-50">
-              {translating ? <Loader2 className="w-3 h-3 animate-spin" /> : <LanguagesIcon className="w-3 h-3" />}
+            <button type="button" onClick={translateTexts} disabled={translating} aria-busy={translating} className="ar-link shrink-0 self-start min-h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline">
+              {translating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LanguagesIcon className="w-3.5 h-3.5" />}
               {translating ? t('uni.translating') : t('uni.translate')}
             </button>
           )}
@@ -151,8 +171,8 @@ export const UniversityDetails: React.FC<UniversityDetailsProps> = ({ uni, profi
 
       {/* Links */}
       {links && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mr-1">{t('uni.links')}:</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 mr-1">{t('uni.links')}:</span>
           {[
             [links.website, Globe, 'Website'],
             [links.admissions, ExternalLink, 'Admissions'],
@@ -171,7 +191,7 @@ export const UniversityDetails: React.FC<UniversityDetailsProps> = ({ uni, profi
                   href={href as string}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:border-slate-400 hover:text-slate-900 transition"
+                  className="inline-flex items-center gap-1.5 min-h-8 px-2.5 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-raised)] text-xs font-medium text-slate-700 dark:text-zinc-300 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 dark:hover:border-zinc-600 dark:hover:text-white transition"
                 >
                   <I className="w-3.5 h-3.5" />
                   {label as string}
@@ -183,47 +203,59 @@ export const UniversityDetails: React.FC<UniversityDetailsProps> = ({ uni, profi
 
       {/* Chance + safety + test policy */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600"><Target className="w-3.5 h-3.5" /> {t('uni.chance')}</span>
-            <span className={`text-xl font-bold font-mono ${probTone}`}>{estimate.probability}%</span>
+        <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] space-y-2 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-300"><Target className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" /> {t('uni.chance')}</span>
+            <span className={`text-xl font-bold tabular-nums ${probTone}`}>{estimate.probability}%</span>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-slate-900 h-full rounded-full" style={{ width: `${estimate.probability}%` }} />
+          <div className="w-full bg-slate-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-blue-600 dark:bg-blue-500 h-full rounded-full transition-[width] duration-500" style={{ width: `${estimate.probability}%` }} />
           </div>
-          <details className="text-[11px]">
-            <summary className="cursor-pointer text-slate-500 hover:text-slate-800">{t('uni.chanceFactors')} ({estimate.factors.length})</summary>
+          <details className="text-xs">
+            <summary className="cursor-pointer text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white">{t('uni.chanceFactors')} ({estimate.factors.length})</summary>
             <ul className="mt-1.5 space-y-1">
               {estimate.factors.map((f, i) => (
                 <li key={i} className="flex items-start justify-between gap-2">
-                  <span className="text-slate-700">{f.note}</span>
-                  <span className={`font-mono font-semibold shrink-0 ${f.impact >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{f.impact > 0 ? '+' : ''}{f.impact}</span>
+                  <span className="text-slate-700 dark:text-zinc-300">{f.note}</span>
+                  <span className={`tabular-nums font-semibold shrink-0 ${f.impact >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>{f.impact > 0 ? '+' : ''}{f.impact}</span>
                 </li>
               ))}
             </ul>
           </details>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600"><ShieldCheck className="w-3.5 h-3.5" /> {t('uni.safety')}</span>
-            <span className="text-xl font-bold font-mono text-slate-900">{safety}/10</span>
+        <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] space-y-2 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-300"><ShieldCheck className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" /> {t('uni.safety')}</span>
+            <span className="text-xl font-bold tabular-nums text-slate-900 dark:text-white">{safety}/10</span>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-slate-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
             <div className={`${safetyTone} h-full rounded-full`} style={{ width: `${safety * 10}%` }} />
           </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">{tx(uni.campus?.neighborhoodNotes)}</p>
+          <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">{tx(uni.campus?.neighborhoodNotes)}</p>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2">
-          <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600"><BookOpen className="w-3.5 h-3.5" /> {t('uni.testPolicy')}</span>
-          <div className="text-sm font-semibold text-slate-900">{t(`uni.testPolicy.${uni.admissions?.testPolicy || 'optional'}`)}</div>
+        <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] space-y-2 min-w-0">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-300"><BookOpen className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" /> {t('uni.testPolicy')}</span>
+          <div className="text-sm font-semibold text-slate-900 dark:text-white">{t(`uni.testPolicy.${uni.admissions?.testPolicy || 'optional'}`)}</div>
           {uni.stats && (
-            <div className="text-[11px] text-slate-600 space-y-0.5">
+            <div className="text-xs text-slate-600 dark:text-zinc-400 space-y-0.5">
               {uni.stats.avgSat && <div>SAT: {uni.stats.avgSat}</div>}
-              {uni.stats.internationalShare && <div>🌍 {uni.stats.internationalShare}</div>}
-              {uni.stats.studentFacultyRatio && <div>👩‍🏫 {uni.stats.studentFacultyRatio}</div>}
-              {uni.stats.graduateEmployment && <div>💼 {uni.stats.graduateEmployment}</div>}
+              {uni.stats.internationalShare && (
+                <div className="flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 shrink-0" /> {uni.stats.internationalShare}
+                </div>
+              )}
+              {uni.stats.studentFacultyRatio && (
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 shrink-0" /> {uni.stats.studentFacultyRatio}
+                </div>
+              )}
+              {uni.stats.graduateEmployment && (
+                <div className="flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 shrink-0" /> {uni.stats.graduateEmployment}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -231,15 +263,15 @@ export const UniversityDetails: React.FC<UniversityDetailsProps> = ({ uni, profi
 
       {/* Projections & prep plan when tests are missing */}
       {(estimate.projections || estimate.prepPlan) && (
-        <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200 space-y-2">
+        <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/60 dark:border-blue-500/20 dark:bg-blue-500/10 space-y-3">
           {estimate.projections && (
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-800 mb-1">{t('uni.projections')}</div>
-              <div className="flex flex-wrap gap-2 text-[11px]">
+              <div className="text-xs font-semibold text-blue-800 dark:text-blue-200 mb-1.5">{t('uni.projections')}</div>
+              <div className="flex flex-wrap gap-1.5 text-xs">
                 {Object.entries(estimate.projections).map(([key, arr]) =>
                   (arr as { score: number; probability: number }[]).map((p) => (
-                    <span key={`${key}-${p.score}`} className="px-2 py-1 rounded-lg bg-white border border-blue-200 text-slate-800">
-                      {key === 'ifIelts' ? 'IELTS' : key === 'ifSat' ? 'SAT' : 'ЕНТ'} {p.score} → <strong>{p.probability}%</strong>
+                    <span key={`${key}-${p.score}`} className="px-2 py-1 rounded-lg bg-white border border-blue-100 dark:border-blue-500/20 text-slate-800 dark:text-zinc-200 tabular-nums">
+                      {key === 'ifIelts' ? 'IELTS' : key === 'ifSat' ? 'SAT' : 'ЕНТ'} {p.score} → <strong className="font-semibold">{p.probability}%</strong>
                     </span>
                   )),
                 )}
@@ -249,16 +281,16 @@ export const UniversityDetails: React.FC<UniversityDetailsProps> = ({ uni, profi
           {estimate.prepPlan && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {estimate.prepPlan.map((plan) => (
-                <details key={plan.exam} className="p-2.5 rounded-lg bg-white border border-blue-100 text-[11px]">
-                  <summary className="cursor-pointer font-semibold text-slate-900">
+                <details key={plan.exam} className="p-3 rounded-lg bg-white border border-blue-100 dark:border-blue-500/20 text-xs">
+                  <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">
                     {t('uni.prepPlan')}: {plan.exam} → {plan.targetScore} · {plan.weeks} {t('common.week')} · {plan.hoursPerWeek} {t('common.hoursPerWeek')}
                   </summary>
-                  <ul className="list-disc pl-4 mt-1.5 space-y-0.5 text-slate-700">
+                  <ul className="list-disc pl-4 mt-1.5 space-y-0.5 text-slate-700 dark:text-zinc-300 marker:text-slate-400">
                     {plan.milestones.map((m, i) => <li key={i}>{m}</li>)}
                   </ul>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
                     {plan.resources.map((r) => (
-                      <a key={r.url} href={r.url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline inline-flex items-center gap-1"><ExternalLink className="w-3 h-3" />{r.title}</a>
+                      <a key={r.url} href={r.url} target="_blank" rel="noreferrer" className={`${textLink} inline-flex items-center gap-1`}><ExternalLink className="w-3 h-3" />{r.title}</a>
                     ))}
                   </div>
                 </details>
@@ -281,99 +313,99 @@ export const UniversityDetails: React.FC<UniversityDetailsProps> = ({ uni, profi
       {/* Admissions insight */}
       {uni.admissions && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          <Section icon={<ThumbsUp className="w-3.5 h-3.5 text-emerald-600" />} title={t('uni.likes')}><Chips items={uni.admissions.likes} tone="good" /></Section>
-          <Section icon={<ThumbsDown className="w-3.5 h-3.5 text-rose-600" />} title={t('uni.dislikes')}>{uni.admissions.dislikes.length ? <Chips items={uni.admissions.dislikes} tone="bad" /> : <span className="text-slate-400">—</span>}</Section>
-          <Section icon={<AlertTriangle className="w-3.5 h-3.5 text-amber-600" />} title={t('uni.pitfalls')}><Chips items={uni.admissions.commonPitfalls} tone="warn" /></Section>
+          <Section icon={<ThumbsUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />} title={t('uni.likes')}><Chips items={uni.admissions.likes} tone="good" /></Section>
+          <Section icon={<ThumbsDown className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />} title={t('uni.dislikes')}>{uni.admissions.dislikes.length ? <Chips items={uni.admissions.dislikes} tone="bad" /> : <span className="text-slate-400">—</span>}</Section>
+          <Section icon={<AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />} title={t('uni.pitfalls')}><Chips items={uni.admissions.commonPitfalls} tone="warn" /></Section>
         </div>
       )}
 
       {/* Environment */}
       {uni.environment && (
         <Section icon={<CloudSun className="w-3.5 h-3.5" />} title={t('uni.environment')}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
             <div><span className="font-semibold">{t('uni.climate')}:</span> {tx(uni.environment.climate)}</div>
-            <div className="flex items-start gap-1"><Wind className="w-3.5 h-3.5 mt-0.5 text-slate-400 shrink-0" /><span><span className="font-semibold">{t('uni.air')}:</span> {uni.environment.airQuality}</span></div>
+            <div className="flex items-start gap-1.5"><Wind className="w-3.5 h-3.5 mt-1 text-slate-400 shrink-0" /><span><span className="font-semibold">{t('uni.air')}:</span> {uni.environment.airQuality}</span></div>
             <div className="sm:col-span-2"><span className="font-semibold">{t('uni.allergy')}:</span> {tx(uni.environment.allergyNotes)}</div>
-            <div className="flex items-start gap-1"><Utensils className="w-3.5 h-3.5 mt-0.5 text-slate-400 shrink-0" /><span><span className="font-semibold">{t('uni.food')}:</span> {uni.environment.foodOptions.join(', ')}</span></div>
-            <div className="flex items-start gap-1"><LanguagesIcon className="w-3.5 h-3.5 mt-0.5 text-slate-400 shrink-0" /><span><span className="font-semibold">{t('uni.languages')}:</span> {uni.environment.languagesOfInstruction.join(', ')}</span></div>
+            <div className="flex items-start gap-1.5"><Utensils className="w-3.5 h-3.5 mt-1 text-slate-400 shrink-0" /><span><span className="font-semibold">{t('uni.food')}:</span> {uni.environment.foodOptions.join(', ')}</span></div>
+            <div className="flex items-start gap-1.5"><LanguagesIcon className="w-3.5 h-3.5 mt-1 text-slate-400 shrink-0" /><span><span className="font-semibold">{t('uni.languages')}:</span> {uni.environment.languagesOfInstruction.join(', ')}</span></div>
           </div>
         </Section>
       )}
 
       {/* AI analyses */}
-      <div className="flex flex-wrap gap-2">
-        <button onClick={loadNews} disabled={loadingNews} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 disabled:opacity-50">
-          {loadingNews ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Newspaper className="w-3.5 h-3.5" />}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <button type="button" onClick={loadNews} disabled={loadingNews} aria-busy={loadingNews} className="ar-btn ar-btn-secondary ar-btn-sm">
+          {loadingNews ? <Loader2 className="w-4 h-4 animate-spin" /> : <Newspaper className="w-4 h-4" />}
           {loadingNews ? t('uni.analyzing') : t('uni.newsAnalysis')}
         </button>
-        <button onClick={loadSocial} disabled={loadingSocial} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-slate-800 border border-slate-200 text-xs font-semibold hover:border-slate-400 disabled:opacity-50">
-          {loadingSocial ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+        <button type="button" onClick={loadSocial} disabled={loadingSocial} aria-busy={loadingSocial} className="ar-btn ar-btn-secondary ar-btn-sm">
+          {loadingSocial ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
           {loadingSocial ? t('uni.analyzing') : t('uni.socialAnalysis')}
         </button>
-        {err && <span className="text-xs text-rose-600 self-center">{err}</span>}
+        {err && <span role="alert" className="text-xs font-medium text-rose-600 dark:text-rose-300 self-center">{err}</span>}
       </div>
 
       {news && (
-        <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 font-semibold text-slate-900"><Newspaper className="w-3.5 h-3.5" /> {t('uni.newsAnalysis')}</span>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${news.sentiment === 'positive' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : news.sentiment === 'negative' ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-slate-50 text-slate-700 border-slate-200'}`}>{news.sentiment || 'neutral'}</span>
+        <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] space-y-2.5 text-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white"><Newspaper className="w-4 h-4 text-slate-500 dark:text-zinc-400" /> {t('uni.newsAnalysis')}</span>
+            <span className={`ar-badge ${news.sentiment === 'positive' ? 'ar-badge-green' : news.sentiment === 'negative' ? 'ar-badge-rose' : ''}`}>{news.sentiment || 'neutral'}</span>
           </div>
-          <p className="text-slate-700 leading-relaxed">{news.summary}</p>
+          <p className="text-slate-700 dark:text-zinc-300 leading-relaxed">{news.summary}</p>
           {news.implications && news.implications.length > 0 && (
             <div>
-              <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-1">{t('uni.implications')}</div>
-              <ul className="list-disc pl-4 space-y-0.5 text-slate-700">{news.implications.map((x, i) => <li key={i}>{x}</li>)}</ul>
+              <div className={`${microLabel} mb-1`}>{t('uni.implications')}</div>
+              <ul className="list-disc pl-4 space-y-0.5 text-slate-700 dark:text-zinc-300 marker:text-slate-400">{news.implications.map((x, i) => <li key={i}>{x}</li>)}</ul>
             </div>
           )}
           {news.headlines?.length > 0 && (
-            <details>
-              <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-800">{t('uni.headlines')} ({news.headlines.length})</summary>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white">{t('uni.headlines')} ({news.headlines.length})</summary>
               <ul className="mt-1.5 space-y-1">
                 {news.headlines.slice(0, 8).map((h, i) => (
                   <li key={i}>
-                    <a href={h.link} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{h.title}</a>
+                    <a href={h.link} target="_blank" rel="noreferrer" className={textLink}>{h.title}</a>
                     <span className="text-slate-400"> · {h.source} · {h.pubDate?.slice(5, 16)}</span>
                   </li>
                 ))}
               </ul>
             </details>
           )}
-          <div className="text-[10px] text-slate-400">model: {news.model}</div>
+          <div className="text-[11px] text-slate-400 dark:text-zinc-500">model: {news.model}</div>
         </div>
       )}
 
       {social && (
-        <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2 text-xs">
-          <span className="flex items-center gap-1.5 font-semibold text-slate-900"><Share2 className="w-3.5 h-3.5" /> {t('uni.socialAnalysis')}</span>
-          {social.summary && <p className="text-slate-700 leading-relaxed">{social.summary}</p>}
+        <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--line)] space-y-2.5 text-sm">
+          <span className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white"><Share2 className="w-4 h-4 text-slate-500 dark:text-zinc-400" /> {t('uni.socialAnalysis')}</span>
+          {social.summary && <p className="text-slate-700 dark:text-zinc-300 leading-relaxed">{social.summary}</p>}
           {social.presence && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {(['instagram', 'tiktok', 'youtube'] as const).map((p) => (
-                <div key={p} className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">{p}</div>
-                  <div className="text-slate-700">{social.presence?.[p] || '—'}</div>
+                <div key={p} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-[var(--line)] text-xs">
+                  <div className={microLabel}>{p}</div>
+                  <div className="text-slate-700 dark:text-zinc-300 mt-0.5">{social.presence?.[p] || '—'}</div>
                 </div>
               ))}
             </div>
           )}
           {social.whatTheyHighlight && social.whatTheyHighlight.length > 0 && <Chips items={social.whatTheyHighlight} />}
           {social.signals?.platforms?.some((p) => p.platform === 'youtube' && p.recentVideos?.length) && (
-            <details>
-              <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-800">YouTube</summary>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white">YouTube</summary>
               <ul className="mt-1.5 space-y-1">
                 {social.signals.platforms.find((p) => p.platform === 'youtube')!.recentVideos!.slice(0, 5).map((v) => (
-                  <li key={v.link}><a href={v.link} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{v.title}</a> <span className="text-slate-400">· {v.published?.slice(0, 10)} · {v.views.toLocaleString()} views</span></li>
+                  <li key={v.link}><a href={v.link} target="_blank" rel="noreferrer" className={textLink}>{v.title}</a> <span className="text-slate-400">· {v.published?.slice(0, 10)} · {v.views.toLocaleString()} views</span></li>
                 ))}
               </ul>
             </details>
           )}
-          {social.verdict && <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800"><span className="font-semibold">{t('uni.verdict')}:</span> {social.verdict}</div>}
-          <div className="text-[10px] text-slate-400">model: {social.model} · {social.signals?.note}</div>
+          {social.verdict && <div className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-[var(--line)] text-slate-800 dark:text-zinc-200"><span className="font-semibold">{t('uni.verdict')}:</span> {social.verdict}</div>}
+          <div className="text-[11px] text-slate-400 dark:text-zinc-500">model: {social.model} · {social.signals?.note}</div>
         </div>
       )}
 
-      <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-zinc-500">
         <BarChart3 className="w-3 h-3" />
         {uni.worldRank} {uni.founded ? `· ${uni.founded}` : ''} {uni.type ? `· ${uni.type}` : ''}
       </div>

@@ -21,9 +21,9 @@ export async function issueOtp(email, name) {
 
   const mail = await sendMail({
     to: email,
-    subject: `Код подтверждения AdmitRoute: ${code}`,
+    subject: `Код подтверждения UniRoute: ${code}`,
     html: otpTemplate(name || 'Ученик', code, config.otp.ttlMinutes),
-    text: `Ваш код подтверждения AdmitRoute: ${code}. Действует ${config.otp.ttlMinutes} минут.`,
+    text: `Ваш код подтверждения UniRoute: ${code}. Действует ${config.otp.ttlMinutes} минут.`,
   });
 
   const response = {

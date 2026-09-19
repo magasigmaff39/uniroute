@@ -13,7 +13,11 @@ function getNormalizedGpa(gpa: number, scale: '4.0' | '5.0'): number {
 // 1. Diagnostic Engine
 export function runDiagnostic(profile: ApplicantProfile): DiagnosticResult {
   const normGpa = getNormalizedGpa(profile.gpa, profile.gpaScale);
-  
+  // Real counts from the knowledge base (instead of unsourced statistics in the strength texts)
+  const totalInstitutions = UNIVERSITY_DATABASE.length;
+  const gpaPassCount = UNIVERSITY_DATABASE.filter((u) => normGpa >= u.minGpa).length;
+  const ieltsPassCount = profile.hasIelts && profile.ieltsScore ? UNIVERSITY_DATABASE.filter((u) => (profile.ieltsScore as number) >= u.minIelts).length : 0;
+
   // Academic readiness (0 - 100)
   let academic = Math.round((normGpa / 4.0) * 80);
   if (profile.hasSat && profile.satScore) {
@@ -49,7 +53,7 @@ export function runDiagnostic(profile: ApplicantProfile): DiagnosticResult {
   else if (profile.olympiadLevel === 'city') portfolio += 30;
   else if (profile.olympiadLevel === 'school') portfolio += 15;
 
-  portfolio += Math.min(25, profile.leadershipActivities.length * 10);
+  portfolio += Math.min(25, (profile.leadershipActivities || []).length * 10);
   portfolio = Math.min(100, portfolio);
 
   // Financial Feasibility (0 - 100)
@@ -71,7 +75,7 @@ export function runDiagnostic(profile: ApplicantProfile): DiagnosticResult {
   if (normGpa >= 3.7) {
     strengths.push({
       title: 'Сильный академический фундамент (GPA ' + profile.gpa + ')',
-      desc: 'Ваш средний балл входит в топ-10% выпускников и закрывает требования топовых университетов Казахстана, Европы и Азии.',
+      desc: `Академический порог пройден: ${gpaPassCount} из ${totalInstitutions} (база UniRoute).`,
       icon: 'GraduationCap'
     });
   }
@@ -79,13 +83,13 @@ export function runDiagnostic(profile: ApplicantProfile): DiagnosticResult {
   if (profile.hasIelts && profile.ieltsScore && profile.ieltsScore >= 7.0) {
     strengths.push({
       title: 'Превосходный языковой уровень (IELTS ' + profile.ieltsScore + ')',
-      desc: 'Балл выше минимального порога 95% англоязычных программ мира. Языковой барьер снят.',
+      desc: `Языковой порог пройден: ${ieltsPassCount} из ${totalInstitutions} (база UniRoute).`,
       icon: 'Languages'
     });
   } else if (profile.hasIelts && profile.ieltsScore && profile.ieltsScore >= 6.5) {
     strengths.push({
       title: 'Уверенный академический английский (IELTS ' + profile.ieltsScore + ')',
-      desc: 'Соответствует требованиям прямого поступления в Nazarbayev University, европейские и азиатские вузы.',
+      desc: `Языковой порог пройден: ${ieltsPassCount} из ${totalInstitutions} (база UniRoute).`,
       icon: 'Languages'
     });
   }
@@ -93,12 +97,12 @@ export function runDiagnostic(profile: ApplicantProfile): DiagnosticResult {
   if (profile.olympiadLevel === 'republican' || profile.olympiadLevel === 'international') {
     strengths.push({
       title: 'Олимпиадный статус национального уровня',
-      desc: 'Диплом призера олимпиады дает право на внеконкурсные гранты и преимущество при отборе в KAIST, HKUST и NU.',
+      desc: 'Призовые места в олимпиадах — сильный сигнал для грантового конкурса и отбора в KAIST, HKUST и NU.',
       icon: 'Trophy'
     });
   }
 
-  if (profile.leadershipActivities.length >= 2) {
+  if ((profile.leadershipActivities || []).length >= 2) {
     strengths.push({
       title: 'Активный профиль внеклассной деятельности',
       desc: 'Участие в клубах и проектах усиливает заявку при целостном рассмотрении (Holistic Review).',
@@ -140,7 +144,7 @@ export function runDiagnostic(profile: ApplicantProfile): DiagnosticResult {
       title: 'Финансовое ограничение: только 100% грант',
       desc: 'Платные формы обучения исключены. Стратегия должна фокусироваться на госгрантах МНВО РК, NU, Stipendium Hungaricum, KAIST KISS и Need-Blind колледжах.',
       severity: 'medium',
-      action: 'Диверсифицировать список вузов программами с гарантированным полным финансированием.'
+      action: 'Диверсифицировать список вузов программами с полным финансированием.'
     });
   }
 
@@ -172,11 +176,11 @@ export function runDiagnostic(profile: ApplicantProfile): DiagnosticResult {
   // Strategic advice tailored by advisor tone
   let strategicAdvice = '';
   if (profile.advisorTone === 'strategic') {
-    strategicAdvice = `Рекомендуется стратегия тройного эшелона: 2 амбициозных Dream-вуза с полным грантом (KAIST, NYUAD), 2 надежных Target-варианта (Nazarbayev University, Constructor/Jacobs) и 1 железобетонный Safety-вариант (AITU по госгранту). Главная точка приложения усилий сейчас — ${!profile.hasSat ? 'сдача Digital SAT на 1450+' : 'шлифовка мотивационного эссе'}.`;
+    strategicAdvice = `Рекомендуется стратегия тройного эшелона: 2 амбициозных Dream-вуза с полным грантом (KAIST, NYUAD), 2 надежных Target-варианта (Nazarbayev University, Constructor/Jacobs) и 1 надёжный Safety-вариант (AITU по госгранту). Главная точка приложения усилий сейчас — ${!profile.hasSat ? 'сдача Digital SAT на 1450+' : 'шлифовка мотивационного эссе'}.`;
   } else if (profile.advisorTone === 'academic') {
     strategicAdvice = `Ваш академический профиль демонстрирует высокую дисциплину. Для перехода на уровень топ-мировых программ следует сфокусироваться на профильных дисциплинах STEM, подготовке развернутого портфолио исследовательских проектов и получении детализированных академических рекомендаций от преподавателей.`;
   } else {
-    strategicAdvice = `У вас отличный стартовый потенциал! Самое главное сейчас — не распыляться на десятки вузов, а уверенно идти по шагам. Мы сформировали для вас сбалансированный маршрут, где риск не поступить сведен к минимуму благодаря сильным запасным планам с бесплатным обучением.`;
+    strategicAdvice = `У вас отличный стартовый потенциал! Самое главное сейчас — не распыляться на десятки вузов, а уверенно идти по шагам. Мы сформировали для вас сбалансированный маршрут: запасные варианты с бесплатным обучением снижают риск остаться без места.`;
   }
 
   const recommendedCategoryFocus = (profile.budgetTier === 'grant_only') 
@@ -206,9 +210,21 @@ export function matchUniversities(profile: ApplicantProfile): University[] {
   const userUnt = profile.hasUnt ? (profile.untScore || 80) : 0;
 
   // Filter and score universities
+  const track = profile.targetTrack || (profile.grade === 'grade_7' || profile.grade === 'grade_8' ? 'school' : profile.grade === 'college' ? 'college' : 'university');
+  const regions = profile.targetRegions || [];
+  // Ordering keys kept outside the returned objects: the displayed score is capped at 98, so ranking uses the uncapped one.
+  const order = new Map<string, { inTrack: number; inRegion: number; raw: number; probability: number }>();
+
   const scored = UNIVERSITY_DATABASE.map(uni => {
     let score = 70;
     
+    // Category & track preference
+    if (uni.category === track) score += 20;
+    else if (track !== 'all' && uni.category && uni.category !== track) score -= 30;
+
+    if (uni.category === 'school' && (profile.grade === 'grade_7' || profile.grade === 'grade_8')) score += 15;
+    if (uni.category === 'college' && profile.grade === 'grade_9') score += 15;
+
     // Major compatibility bonus
     const majorMatch = uni.supportedMajors.some(m => profile.targetMajors.includes(m));
     if (majorMatch) score += 15;
@@ -281,32 +297,64 @@ export function matchUniversities(profile: ApplicantProfile): University[] {
       }
     }
 
+    const rawScore = score;
     score = Math.min(98, Math.max(45, score));
 
     // Fit tier comes from the shared, explainable chance model (same numbers the backend and the details panel use)
     const chance = estimateChance(profile, uni);
     const fitTier: FitTier = chance.tier;
+    order.set(uni.id, {
+      inTrack: track === 'all' || (uni.category || 'university') === track ? 1 : 0,
+      inRegion: regions.includes(uni.region) ? 1 : 0,
+      raw: rawScore,
+      probability: chance.probability,
+    });
 
     // Generate clear, human-language "Why it fits" explanation tailored to user's exact inputs
     let customWhyItFits = '';
+    // Statements below depend on the applicant's real numbers, so they never claim a fit that the thresholds do not show.
+    const budgetLabel = profile.budgetTier === 'grant_only' ? 'только 100% грант' : 'бюджет до $5,000';
     const grantMention = (profile.budgetTier === 'grant_only' || profile.budgetTier === 'up_to_5k')
-      ? `Учитывая ваше требование к финансированию (${profile.budgetTier === 'grant_only' ? 'только 100% грант' : 'бюджет до $5,000'}), программа ${uni.scholarshipName} полностью снимает нагрузку на семейный бюджет. `
+      ? uni.hasFullGrantOrScholarship
+        ? `С учётом вашего бюджета (${budgetLabel}) важно, что здесь есть путь к полному финансированию: ${uni.scholarshipName}. `
+        : `С учётом вашего бюджета (${budgetLabel}): полного гранта нет, стоимость — $${uni.tuitionUSDPerYear.toLocaleString()} в год. `
       : '';
+    const gpaLabel = `${profile.gpa}/${profile.gpaScale}${profile.gpaScale === '5.0' ? ` (≈${normGpa.toFixed(1)} из 4.0)` : ''}`;
+    const gpaNote = normGpa >= uni.minGpa
+      ? `Ваш GPA ${gpaLabel} проходит порог ${uni.minGpa} из 4.0.`
+      : `Ваш GPA ${gpaLabel} пока ниже порога ${uni.minGpa} из 4.0.`;
+    const ieltsNote = !profile.hasIelts
+      ? `Нужен IELTS ${uni.minIelts}+ — сертификата пока нет.`
+      : userIelts >= uni.minIelts
+        ? `IELTS ${userIelts} проходит порог ${uni.minIelts}.`
+        : `IELTS ${userIelts} пока ниже порога ${uni.minIelts}.`;
 
     if (uni.id === 'nu') {
-      customWhyItFits = `Ваш средний балл (GPA ${profile.gpa}) и уровень английского (IELTS ${userIelts}) соответствуют профилю зачисленных студентов Назарбаев Университета. ${grantMention}Обучение на 100% покрывается государственным грантом с ежемесячной стипендией.`;
+      customWhyItFits = `Назарбаев Университет: ${gpaNote} ${ieltsNote} ${grantMention}Для поступивших по государственному гранту обучение покрывается полностью, с ежемесячной стипендией.`;
     } else if (uni.id === 'aitu') {
-      customWhyItFits = `Идеальный вариант для направления ${profile.targetMajors.includes('cs_ai') ? 'Computer Science & AI' : 'Software Engineering'}. ${profile.hasUnt ? `Ваш балл ЕНТ (${userUnt}) дает высокие шансы на распределение госгранта МНВО РК.` : 'Позволяет получить гарантированный государственный грант по профилю Математика + Информатика.'} Кампус в Astana Hub обеспечивает прямой выход на работодателей.`;
+      customWhyItFits = `Сильный вариант для направления ${profile.targetMajors.includes('cs_ai') ? 'Computer Science & AI' : 'Software Engineering'}. ${profile.hasUnt ? `Ваш балл ЕНТ (${userUnt}) участвует в конкурсе на госгрант МНВО РК${uni.minUnt ? ` (ориентир ${uni.minUnt}+)` : ''}.` : 'Можно претендовать на государственный грант по профилю Математика + Информатика — для этого нужен ЕНТ.'} Кампус расположен в Astana Hub, рядом с IT-компаниями.`;
     } else if (uni.id === 'kaist') {
       customWhyItFits = `Как сильному STEM-кандидату ${profile.olympiadLevel !== 'none' ? 'с подтвержденным олимпиадным опытом' : 'с фокусом на технологии'}, KAIST предлагает обучение в топ-1 технологическом институте Азии со 100% стипендией KISS и ежемесячным пособием.`;
     } else if (uni.id === 'constructor') {
-      customWhyItFits = `Качественное немецкое образование на 100% английском языке. Ваш GPA ${profile.gpa} попадает в диапазон успешных кандидатов, а программа отложенной оплаты JU Study Plan позволяет учиться без непосильных стартовых взносов.`;
+      customWhyItFits = `Качественное немецкое образование на 100% английском языке. ${gpaNote} Программа отложенной оплаты JU Study Plan позволяет начать учёбу без полной оплаты вперёд.`;
     } else if (uni.id === 'bocconi') {
       customWhyItFits = `Ведущая бизнес-школа континентальной Европы. Для студентов из Центральной Азии действует программа ISU Bocconi, которая при предоставлении справок о доходах семьи (2-НДФЛ) полностью оплачивает обучение и выделяет денежную стипендию на жизнь в Милане.`;
     } else if (uni.id === 'hungaricum_bme') {
-      customWhyItFits = `Межправительственная программа Stipendium Hungaricum — один из самых доступных способов получить европейский инженерный диплом: 100% грант, бесплатное общежитие и стипендия. Ваш балл IELTS ${userIelts} превышает входной порог (6.0).`;
+      customWhyItFits = `Межправительственная программа Stipendium Hungaricum — один из самых доступных способов получить европейский инженерный диплом: для стипендиатов — 100% грант, бесплатное общежитие и стипендия. ${ieltsNote}`;
     } else if (uni.id === 'sdu') {
       customWhyItFits = `Университет предоставляет отличную базу по IT и бизнесу. Участие во внутренней олимпиаде SDU SPT позволяет выиграть 100% грант на все 4 года бакалавриата еще до сдачи школьных выпускных экзаменов.`;
+    } else if (uni.id === 'nis') {
+      customWhyItFits = `Назарбаев Интеллектуальная Школа — обучение по гранту «Өркен». Отбор проходит через комплексное тестирование по математике и естественным наукам; ${gpaNote.charAt(0).toLowerCase()}${gpaNote.slice(1)}`;
+    } else if (uni.id === 'rfmsh') {
+      customWhyItFits = `РФМШ — легендарная физмат школа. Идеальный выбор для кандидатов с математическими способностями; олимпиадный резерв и прямое поступление в топ-вузы.`;
+    } else if (uni.id === 'haileybury') {
+      customWhyItFits = `Haileybury — элитный британский диплом IB DP / IGCSE. Стипендиальная программа Sixth Form Scholarship позволяет учиться полностью бесплатно по результатам тестов CAT4.`;
+    } else if (uni.id === 'aitu_college') {
+      customWhyItFits = `Высший колледж AITU — прямой интегрированный переход на 2–3 курс бакалавриата Astana IT University без сдачи общего ЕНТ. Государственный грант со стипендией.`;
+    } else if (uni.id === 'polytech_astana') {
+      customWhyItFits = `Астанинский политехнический колледж — обучение на новейшем оборудовании Festo и стандартам WorldSkills со 100% госзаказом, стипендией и общежитием.`;
+    } else if (uni.id === 'george_brown') {
+      customWhyItFits = `George Brown College (Торонто) — прикладной канадский диплом с оплачиваемыми Co-op семестрами и правом на 3-летнее разрешение на работу в Канаде (PGWP).`;
     } else {
       customWhyItFits = uni.whyItFits + ' ' + grantMention;
     }
@@ -319,20 +367,23 @@ export function matchUniversities(profile: ApplicantProfile): University[] {
     };
   });
 
-  // Sort by match score descending, ensure at least one Dream, Target, and Safety
-  scored.sort((a, b) => b.matchScore - a.matchScore);
+  // Same priorities as the automatic pick (shared/logic/match.js): the chosen track first, then the chosen regions,
+  // then the uncapped fit and the estimated chance. Changing a region or the budget therefore reorders the list.
+  scored.sort((a, b) => {
+    const ka = order.get(a.id)!;
+    const kb = order.get(b.id)!;
+    return kb.inTrack - ka.inTrack || kb.inRegion - ka.inRegion || kb.raw - ka.raw || kb.probability - ka.probability;
+  });
 
-  // Return filtered or prioritized list (at least 6 best matches)
   return scored;
 }
 
 // 3. Dynamic Roadmap Generator
 export function generateRoadmap(profile: ApplicantProfile, matchedUnis: University[]): RoadmapStep[] {
-  const is11th = profile.grade === 'grade_11';
-  const targetYear = profile.targetYear;
+  const is11th = profile.grade === 'grade_11' || profile.grade === 'grade_12';
   const targetMajorTitle = profile.targetMajors[0] ? profile.targetMajors[0].toUpperCase() : 'IT & STEM';
 
-  // One concrete subtask per university the applicant selected, with its real deadline and portal
+  // One concrete subtask per university/school/college the applicant selected, with its real deadline and portal
   const targetUniSubtasks = (profile.targetUniversityIds || [])
     .map((id) => UNIVERSITY_BY_ID.get(id))
     .filter((u): u is University => Boolean(u))
@@ -344,14 +395,195 @@ export function generateRoadmap(profile: ApplicantProfile, matchedUnis: Universi
       deadline: u.regularDeadline,
     }));
 
+  const primaryTargetId = (profile.targetUniversityIds && profile.targetUniversityIds[0]) || null;
+  const primaryTarget = primaryTargetId ? UNIVERSITY_BY_ID.get(primaryTargetId) : null;
+  const targetCategory = primaryTarget?.category || (profile.targetTrack !== 'all' ? profile.targetTrack : null);
+
+  // -------------------------------------------------------------------------
+  // 1. SCHOOL / LYCEUM TRACK (НИШ, РФМШ, БИЛ, Haileybury, etc.)
+  // -------------------------------------------------------------------------
+  if (targetCategory === 'school') {
+    const schoolName = primaryTarget?.shortName || 'Лицей / НИШ / РФМШ';
+    const deadline = primaryTarget?.regularDeadline || 'Март 2027';
+    const portal = primaryTarget?.officialPortalUrl || 'приёмная комиссия';
+
+    return [
+      {
+        id: 'step-school-exams',
+        title: `Вступительные испытания в ${schoolName}`,
+        category: 'exams',
+        timeFrame: 'immediate',
+        targetDate: 'Январь - Февраль 2027',
+        description: primaryTarget?.id === 'nis'
+          ? 'Комплексное тестирование на грант Президента РК «Өркен» (Математика, естествознание, пространственное мышление и языковой блок).'
+          : primaryTarget?.id === 'rfmsh'
+          ? 'Профильный письменный экзамен по математике и логике РФМШ.'
+          : primaryTarget?.id === 'haileybury'
+          ? 'Когнитивное тестирование CAT4 и профильные академические предметы на стипендию Sixth Form.'
+          : 'Сдача вступительного тестирования по математике и логике.',
+        isKeyMilestone: true,
+        guidanceTip: primaryTarget?.id === 'nis'
+          ? 'Решайте сборники заданий НИШ прошлых лет на пространственное мышление и задачи на скорость/логику — на них срезаются до 40% абитуриентов.'
+          : 'Высокие результаты в олимпиадах Дарын или Жаутыковской олимпиаде дают преимущественное право на зачисление.',
+        templateAvailable: true,
+        subtasks: [
+          {
+            id: 'sch-ex-1',
+            title: primaryTarget?.id === 'nis'
+              ? 'Пройти 5 пробных комплексных тестов «Өркен» (математическая грамотность, естествознание, пространственное мышление)'
+              : primaryTarget?.id === 'haileybury'
+              ? 'Подготовиться к тестам CAT4 (Non-verbal, Spatial, Verbal reasoning) и академическому английскому'
+              : `Решить открытый банк вступительных экзаменов прошлых лет ${schoolName}`,
+            isCompleted: false,
+          },
+          { id: 'sch-ex-2', title: 'Усилить языковой блок (казахский / русский / академический английский)', isCompleted: false },
+          { id: 'sch-ex-3', title: 'Провести контрольный тайм-тест в условиях ограниченного времени (60-90 минут)', isCompleted: false },
+        ],
+      },
+      {
+        id: 'step-school-docs',
+        title: 'Школьный пакет документов для приёмной комиссии',
+        category: 'documents',
+        timeFrame: '1-2_months',
+        targetDate: 'Февраль - Март 2027',
+        description: 'Формирование личного дела абитуриента согласно правилам конкурсного отбора.',
+        isKeyMilestone: false,
+        guidanceTip: 'Медицинские справки формы 075/у и флюорографию делайте заранее — поликлиники перегружены перед окончанием приёма.',
+        templateAvailable: true,
+        subtasks: [
+          { id: 'sch-doc-1', title: 'Получить табель успеваемости за предыдущие классы, заверенный директором и круглой печатью школы', isCompleted: false },
+          { id: 'sch-doc-2', title: 'Оформить медицинскую справку формы 075/у со снимком флюорографии и картой прививок 063/у', isCompleted: false },
+          { id: 'sch-doc-3', title: 'Подготовить нотариальную копию свидетельства о рождении / удостоверения с ИИН и 4 фото 3х4', isCompleted: false },
+          { id: 'sch-doc-4', title: 'Собрать оригиналы и копии дипломов олимпиад и конкурсов для портфолио', isCompleted: profile.olympiadLevel !== 'none' },
+        ],
+      },
+      {
+        id: 'step-school-application',
+        title: `Подача заявления в ${schoolName}`,
+        category: 'deadlines',
+        timeFrame: '3-6_months',
+        targetDate: deadline,
+        description: `Регистрация на конкурсный отбор через ${portal}.`,
+        isKeyMilestone: true,
+        guidanceTip: 'После онлайн-подачи обязательно сохраните расписку о приёме документов и экзаменационный пропуск.',
+        subtasks: [
+          ...targetUniSubtasks,
+          { id: 'sch-app-1', title: `Зарегистрироваться в электронной приёмной комиссии ${schoolName}`, isCompleted: false },
+          { id: 'sch-app-2', title: 'Подать заявку на грантовое обучение («Өркен» / стипендиальный фонд)', isCompleted: false },
+          { id: 'sch-app-3', title: 'Получить посадочный талон с датой, аудиторией и временем очного экзамена', isCompleted: false },
+        ],
+      },
+      {
+        id: 'step-school-final',
+        title: 'Экзаменационный тур и зачисление',
+        category: 'deadlines',
+        timeFrame: 'final',
+        targetDate: 'Апрель - Май 2027',
+        description: 'Участие в очном экзамене, апелляция (при необходимости) и оформление приказа о зачислении.',
+        isKeyMilestone: true,
+        guidanceTip: 'В день экзамена возьмите оригинал свидетельства/удостоверения, пропуск и 2 гелевые ручки чёрного цвета.',
+        subtasks: [
+          { id: 'sch-fin-1', title: 'Явка на очный экзаменационный тур в назначенную дату', isCompleted: false },
+          { id: 'sch-fin-2', title: 'Проверить результаты в протоколе республиканской приёмной комиссии', isCompleted: false },
+          { id: 'sch-fin-3', title: 'Предоставить оригиналы документов в приёмную комиссию и подписать договор', isCompleted: false },
+        ],
+      },
+    ];
+  }
+
+  // -------------------------------------------------------------------------
+  // 2. COLLEGE TRACK (AITU College, КБТУ Колледж, Политех, Seneca, etc.)
+  // -------------------------------------------------------------------------
+  if (targetCategory === 'college') {
+    const collegeName = primaryTarget?.shortName || 'Высший колледж';
+    const isCanada = primaryTarget?.region === 'usa_canada';
+    const deadline = primaryTarget?.regularDeadline || 'Август 2027';
+
+    return [
+      {
+        id: 'step-college-academic',
+        title: 'Аттестат и средний балл (GPA) для конкурса грантов',
+        category: 'exams',
+        timeFrame: 'immediate',
+        targetDate: 'Март - Май 2027',
+        description: 'Отбор на государственные гранты ТиПО и в престижные колледжи проводится по среднему баллу аттестата.',
+        isKeyMilestone: true,
+        guidanceTip: 'Чтобы повысить шансы на грант в IT и политехнических специальностях, держите средний балл аттестата не ниже 4.6–4.8.',
+        templateAvailable: true,
+        subtasks: [
+          { id: 'col-ac-1', title: 'Повысить и зафиксировать средний балл аттестата за 9/11 класс выше 4.7', isCompleted: false },
+          { id: 'col-ac-2', title: 'Сфокусироваться на профильных дисциплинах: алгебра, геометрия, физика, информатика', isCompleted: false },
+          ...(isCanada ? [{ id: 'col-ac-3', title: 'Сдать IELTS Academic на 6.0+ или Duolingo 105+ для зачисления в Канаду', isCompleted: profile.hasIelts }] : []),
+        ],
+      },
+      {
+        id: 'step-college-docs',
+        title: 'Пакет документов для зачисления в колледж',
+        category: 'documents',
+        timeFrame: '1-2_months',
+        targetDate: 'Июнь - Июль 2027',
+        description: 'Формирование пакета документов для подачи на платформе eGov или в приёмную комиссию колледжа.',
+        isKeyMilestone: false,
+        guidanceTip: 'Аттестат об окончании 9 или 11 класса выдаётся в конце июня — сразу заказывайте нотариальные копии.',
+        templateAvailable: true,
+        subtasks: [
+          { id: 'col-doc-1', title: 'Получить подлинник аттестата об основном среднем (9 кл.) или общем среднем образовании с приложением', isCompleted: false },
+          { id: 'col-doc-2', title: 'Пройти медосмотр и получить справку 075/у со снимком флюорографии и карту прививок 063/у', isCompleted: false },
+          { id: 'col-doc-3', title: 'Подготовить удостоверение личности / свидетельство с ИИН и 4 фото 3х4', isCompleted: false },
+          { id: 'col-doc-4', title: 'Оформить заявку на получение места в студенческом общежитии', isCompleted: false },
+        ],
+      },
+      {
+        id: 'step-college-grants',
+        title: `Подача на госгрант ТиПО и в ${collegeName}`,
+        category: 'deadlines',
+        timeFrame: '3-6_months',
+        targetDate: deadline,
+        description: 'Участие в распределении государственного образовательного заказа ТиПО (100% покрытие, стипендия, проезд).',
+        isKeyMilestone: true,
+        guidanceTip: 'При подаче на ТиПО можно указать до 4 специальностей или колледжей в порядке приоритета.',
+        subtasks: [
+          ...targetUniSubtasks,
+          { id: 'col-gr-1', title: `Подать заявку через eGov / SmartNation в ${collegeName} на грантовое место`, isCompleted: false },
+          { id: 'col-gr-2', title: 'Пройти профильное собеседование или психометрический тест при колледже', isCompleted: false },
+          { id: 'col-gr-3', title: 'Проверить списки обладателей государственных грантов ТиПО в августе', isCompleted: false },
+        ],
+      },
+      {
+        id: 'step-college-pathway',
+        title: 'Сквозная программа 2+2 (Колледж → Университет)',
+        category: 'deadlines',
+        timeFrame: 'final',
+        targetDate: 'Сентябрь 2027',
+        description: 'Фиксация индивидуального плана перезачета кредитов для перехода на 2–3 курс университета-партнера без общего ЕНТ.',
+        isKeyMilestone: true,
+        guidanceTip: 'Учёба в колледже при университете (AITU, КБТУ, AlmaU) позволяет сэкономить 1–2 года на получении степени бакалавра.',
+        subtasks: [
+          { id: 'col-pw-1', title: 'Утвердить учебный план сквозной подготовки с академическим куратором программы', isCompleted: false },
+          { id: 'col-pw-2', title: 'Подключиться к лабораториям университета и проектам Astana Hub / индустриальным партнерам', isCompleted: false },
+          ...(isCanada ? [{ id: 'col-pw-3', title: 'Оформить разрешение на учёбу (Study Permit) и Co-op Work Permit для Канады', isCompleted: false }] : []),
+        ],
+      },
+    ];
+  }
+
+  // -------------------------------------------------------------------------
+  // 3. UNIVERSITY TRACK (Or general roadmap)
+  // -------------------------------------------------------------------------
+  const primaryUniName = primaryTarget?.shortName;
+
   const steps: RoadmapStep[] = [
     {
       id: 'step-exams',
-      title: 'Стандартизированные экзамены (IELTS / SAT / ЕНТ)',
+      title: primaryUniName
+        ? `Стандартизированные экзамены для ${primaryUniName}`
+        : 'Стандартизированные экзамены (IELTS / SAT / ЕНТ)',
       category: 'exams',
       timeFrame: 'immediate',
       targetDate: is11th ? 'Октябрь - Ноябрь 2026' : 'Весна 2027',
-      description: 'Закрытие главного формального барьера для участия во всех стипендиальных конкурсах.',
+      description: primaryTarget
+        ? `Требования ${primaryTarget.shortName}: IELTS от ${primaryTarget.minIelts || '—'}, SAT от ${primaryTarget.minSat || '—'}, ЕНТ от ${primaryTarget.minUnt || '—'}.`
+        : 'Закрытие главного формального барьера для участия во всех стипендиальных конкурсах.',
       isKeyMilestone: true,
       guidanceTip: 'Сдача IELTS на 7.0+ и SAT на 1420+ автоматически переводит ваши заявки из очереди рассмотрения в приоритетный пул.',
       templateAvailable: true,

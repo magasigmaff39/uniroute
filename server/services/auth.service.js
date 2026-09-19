@@ -7,7 +7,8 @@ import { config } from '../config.js';
 import { badRequest, conflict, unauthorized, HttpError } from '../utils/errors.js';
 
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 };
-export const GRADES = ['grade_9', 'grade_10', 'grade_11', 'college', 'gap_year'];
+export const GRADES = ['grade_7', 'grade_8', 'grade_9', 'grade_10', 'grade_11', 'grade_12', 'college', 'gap_year'];
+export const TARGET_TRACKS = ['university', 'college', 'school', 'all'];
 export const LANGUAGES = ['kk', 'en', 'ru'];
 
 export function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
@@ -36,6 +37,7 @@ export function toPublicUser(doc) {
     email: doc.email,
     age: doc.age,
     grade: doc.grade,
+    targetTrack: doc.targetTrack || 'all',
     photoUrl: doc.photoUrl || null,
     providers: doc.providers || ['password'],
     createdAt: doc.createdAt,
@@ -98,12 +100,13 @@ function newUserId() {
   return `usr_${crypto.randomUUID()}`;
 }
 
-export async function registerUser({ firstName, lastName, email, age, grade, password, isEmailVerified, preferredLanguage, userAgent }) {
+export async function registerUser({ firstName, lastName, email, age, grade, targetTrack, password, isEmailVerified, preferredLanguage, userAgent }) {
   if (!password || password.length < 6) throw badRequest('Пароль должен содержать не менее 6 символов', 'WEAK_PASSWORD');
   if (password.length > 128) throw badRequest('Пароль слишком длинный', 'WEAK_PASSWORD');
   email = String(email).toLowerCase();
   if (await findUserByEmail(email)) throw conflict('Аккаунт с таким email уже зарегистрирован', 'EMAIL_TAKEN');
   if (!GRADES.includes(grade)) grade = 'grade_10';
+  if (!TARGET_TRACKS.includes(targetTrack)) targetTrack = 'all';
   if (!LANGUAGES.includes(preferredLanguage)) preferredLanguage = 'ru';
 
   const store = await getStore();
@@ -116,6 +119,7 @@ export async function registerUser({ firstName, lastName, email, age, grade, pas
     lastName: String(lastName || '').trim().slice(0, 60),
     age: Number(age) || 16,
     grade,
+    targetTrack,
     passwordHash: hash,
     passwordSalt: salt,
     providers: ['password'],
@@ -220,6 +224,7 @@ export async function updateUser(userId, patch) {
     lastName: patch.lastName !== undefined ? String(patch.lastName).trim().slice(0, 60) : current.lastName,
     age: patch.age !== undefined ? Number(patch.age) || current.age : current.age,
     grade: GRADES.includes(patch.grade) ? patch.grade : current.grade,
+    targetTrack: TARGET_TRACKS.includes(patch.targetTrack) ? patch.targetTrack : current.targetTrack || 'all',
     preferredLanguage: LANGUAGES.includes(patch.preferredLanguage) ? patch.preferredLanguage : current.preferredLanguage,
   };
   return toPublicUser(await store.update('users', userId, next));
@@ -256,6 +261,7 @@ export async function deleteAccount(userId) {
     await store.removeWhere(col, { where: [['userId', '==', userId]] });
   }
   await store.remove('profiles', userId);
+  await store.remove('planners', userId);
   await destroyAllSessions(userId);
   await store.remove('users', userId);
 }

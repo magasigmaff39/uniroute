@@ -19,21 +19,21 @@ export function renderInline(text: string, keyPrefix = ''): React.ReactNode[] {
     const key = `${keyPrefix}${m.index}`;
     if (m[1] && m[2]) {
       out.push(
-        <a key={key} href={m[2]} target="_blank" rel="noreferrer" className="text-blue-700 font-semibold underline decoration-blue-300 hover:text-blue-900 inline-flex items-center gap-0.5 break-words">
+        <a key={key} href={m[2]} target="_blank" rel="noreferrer" className="text-blue-700 dark:text-blue-300 font-semibold underline underline-offset-2 decoration-blue-300 dark:decoration-blue-500/50 hover:text-blue-800 dark:hover:text-blue-200 inline-flex items-center gap-0.5 break-words">
           {m[1]}
           <ExternalLink className="w-2.5 h-2.5 inline shrink-0" />
         </a>,
       );
     } else if (m[3]) {
-      out.push(<strong key={key} className="font-semibold text-slate-900">{m[3].slice(2, -2)}</strong>);
+      out.push(<strong key={key} className="font-semibold text-slate-900 dark:text-white">{m[3].slice(2, -2)}</strong>);
     } else if (m[4]) {
-      out.push(<code key={key} className="px-1 py-0.5 rounded bg-slate-100 text-[0.92em] font-mono text-slate-800">{m[4].slice(1, -1)}</code>);
+      out.push(<code key={key} className="px-1 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-[0.92em] font-mono text-slate-800 dark:text-zinc-200">{m[4].slice(1, -1)}</code>);
     } else if (m[5]) {
       out.push(<em key={key}>{m[5].slice(1, -1)}</em>);
     } else if (m[6]) {
       const url = m[6].replace(/[.,;:]+$/, '');
       out.push(
-        <a key={key} href={url} target="_blank" rel="noreferrer" className="text-blue-700 underline hover:text-blue-900 break-all">
+        <a key={key} href={url} target="_blank" rel="noreferrer" className="text-blue-700 dark:text-blue-300 underline underline-offset-2 hover:text-blue-800 dark:hover:text-blue-200 break-all">
           {url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}
         </a>,
       );
@@ -159,14 +159,14 @@ export const Markdown: React.FC<MarkdownProps> = ({ text, className = '', compac
           case 'h': {
             const cls = b.level <= 2 ? (compact ? 'text-[13px]' : 'text-base') : compact ? 'text-xs' : 'text-sm';
             return (
-              <div key={i} className={`font-bold text-slate-900 ${cls} ${i > 0 ? 'pt-1' : ''}`}>
+              <div key={i} className={`font-semibold text-slate-900 dark:text-white ${cls} ${i > 0 ? 'pt-1' : ''}`}>
                 {renderInline(b.text, `h${i}-`)}
               </div>
             );
           }
           case 'ul':
             return (
-              <ul key={i} className="list-disc pl-4 space-y-1 text-slate-700 marker:text-slate-400">
+              <ul key={i} className="list-disc pl-4 space-y-1 text-slate-700 dark:text-zinc-300 marker:text-slate-400 dark:marker:text-zinc-500">
                 {b.items.map((it, j) => (
                   <li key={j}>{renderInline(it, `u${i}-${j}-`)}</li>
                 ))}
@@ -174,7 +174,7 @@ export const Markdown: React.FC<MarkdownProps> = ({ text, className = '', compac
             );
           case 'ol':
             return (
-              <ol key={i} className="list-decimal pl-4 space-y-1 text-slate-700 marker:text-slate-500 marker:font-semibold">
+              <ol key={i} className="list-decimal pl-4 space-y-1 text-slate-700 dark:text-zinc-300 marker:text-slate-500 dark:marker:text-zinc-400 marker:font-semibold">
                 {b.items.map((it, j) => (
                   <li key={j}>{renderInline(it, `o${i}-${j}-`)}</li>
                 ))}
@@ -182,12 +182,12 @@ export const Markdown: React.FC<MarkdownProps> = ({ text, className = '', compac
             );
           case 'table':
             return (
-              <div key={i} className="overflow-x-auto -mx-1">
-                <table className="min-w-full text-left border-collapse text-[11px]">
+              <div key={i} className="overflow-x-auto rounded-xl border border-[var(--line)]">
+                <table className="min-w-full text-left border-collapse text-xs">
                   <thead>
                     <tr>
                       {b.header.map((h, j) => (
-                        <th key={j} className="px-2 py-1.5 border-b border-slate-200 font-semibold text-slate-700 bg-slate-50 whitespace-nowrap">
+                        <th key={j} className="px-2.5 py-2 border-b border-[var(--line)] font-semibold text-slate-700 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-800/40 whitespace-nowrap">
                           {renderInline(h, `th${i}-${j}-`)}
                         </th>
                       ))}
@@ -195,9 +195,9 @@ export const Markdown: React.FC<MarkdownProps> = ({ text, className = '', compac
                   </thead>
                   <tbody>
                     {b.rows.map((r, ri) => (
-                      <tr key={ri} className="odd:bg-white even:bg-slate-50/60">
+                      <tr key={ri} className="even:bg-slate-50/60 dark:even:bg-zinc-800/30 [&:last-child>td]:border-b-0">
                         {r.map((c, ci) => (
-                          <td key={ci} className="px-2 py-1.5 border-b border-slate-100 text-slate-700 align-top">
+                          <td key={ci} className="px-2.5 py-2 border-b border-slate-100 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 align-top">
                             {renderInline(c, `td${i}-${ri}-${ci}-`)}
                           </td>
                         ))}
@@ -209,15 +209,15 @@ export const Markdown: React.FC<MarkdownProps> = ({ text, className = '', compac
             );
           case 'quote':
             return (
-              <blockquote key={i} className="border-l-2 border-blue-300 pl-3 text-slate-600 italic">
+              <blockquote key={i} className="border-l-2 border-blue-300 dark:border-blue-500/50 pl-3 text-slate-600 dark:text-zinc-400 italic">
                 {renderInline(b.text, `q${i}-`)}
               </blockquote>
             );
           case 'hr':
-            return <hr key={i} className="border-slate-200" />;
+            return <hr key={i} className="border-[var(--line)]" />;
           default:
             return (
-              <p key={i} className="text-slate-800 leading-relaxed">
+              <p key={i} className="text-slate-800 dark:text-zinc-200 leading-relaxed">
                 {renderInline(b.text, `p${i}-`)}
               </p>
             );

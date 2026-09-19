@@ -21,6 +21,13 @@ tasksRouter.get(
   asyncHandler(async (req, res) => res.json(await taskStats(req.user.id))),
 );
 
+/** Optional links of a task to a university, a planner deadline and an olympiad. */
+const linksOf = (b) => ({
+  universityId: optionalString(b.universityId, 'universityId', { max: 80 }),
+  deadlineKey: optionalString(b.deadlineKey, 'deadlineKey', { max: 120 }),
+  olympiadId: optionalString(b.olympiadId, 'olympiadId', { max: 80 }),
+});
+
 tasksRouter.post(
   '/',
   asyncHandler(async (req, res) => {
@@ -32,6 +39,7 @@ tasksRouter.post(
       status: requireEnum(b.status, 'status', TASK_STATUSES, 'todo'),
       dueDate: optionalDate(b.dueDate, 'dueDate'),
       source: optionalString(b.source, 'source', { max: 40 }),
+      ...linksOf(b),
     });
     res.status(201).json(task);
   }),
@@ -55,6 +63,7 @@ tasksRouter.post(
           status: 'todo',
           dueDate: /^\d{4}-\d{2}-\d{2}$/.test(String(b.dueDate || '')) ? String(b.dueDate) : /^\d{4}-\d{2}$/.test(String(b.dueDate || '')) ? `${b.dueDate}-28` : null,
           source: optionalString(b.source, 'source', { max: 40 }) || 'ai',
+          ...linksOf(b),
         }),
       );
       existing.add(title.toLowerCase());
@@ -82,6 +91,9 @@ tasksRouter.patch(
     if (b.category !== undefined) patch.category = requireEnum(b.category, 'category', TASK_CATEGORIES);
     if (b.status !== undefined) patch.status = requireEnum(b.status, 'status', TASK_STATUSES);
     if (b.dueDate !== undefined) patch.dueDate = optionalDate(b.dueDate, 'dueDate');
+    for (const key of ['universityId', 'deadlineKey', 'olympiadId']) {
+      if (b[key] !== undefined) patch[key] = optionalString(b[key], key, { max: 120 }) ?? null;
+    }
     res.json(await updateTask(req.user.id, req.params.id, patch));
   }),
 );

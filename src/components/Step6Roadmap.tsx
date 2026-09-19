@@ -1,34 +1,42 @@
 import React, { useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
-import { 
-  ArrowRight, 
-  ArrowLeft, 
-  Calendar, 
-  CheckCircle2, 
-  Circle, 
-  Download, 
-  Lightbulb, 
+import {
+  ArrowRight,
+  ArrowLeft,
+  Calendar,
+  Check,
+  CheckCircle2,
+  Circle,
+  Download,
+  Lightbulb,
+  Mail,
+  Target,
   Filter,
-  Mail 
 } from 'lucide-react';
-import { RoadmapStep } from '../types';
+import { RoadmapStep, ApplicantProfile } from '../types';
+import { UNIVERSITY_DATABASE } from '../data/universities';
 
 interface Step6RoadmapProps {
   roadmap: RoadmapStep[];
+  profile?: ApplicantProfile;
   onToggleSubtask: (stepId: string, subtaskId: string) => void;
   onNext: () => void;
   onBack: () => void;
   onExportRoadmap: () => void;
   onOpenEmailModal: () => void;
+  /** Inside «Анализ поступления»: the section supplies the title and the tabs replace back/next. */
+  embedded?: boolean;
 }
 
 export const Step6Roadmap: React.FC<Step6RoadmapProps> = ({
   roadmap,
+  profile,
   onToggleSubtask,
   onNext,
   onBack,
   onExportRoadmap,
   onOpenEmailModal,
+  embedded = false,
 }) => {
   const { t, tx } = useI18n();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -46,78 +54,104 @@ export const Step6Roadmap: React.FC<Step6RoadmapProps> = ({
   const getCategoryBadge = (category: RoadmapStep['category']) => {
     switch (category) {
       case 'exams':
-        return <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-[11px] font-medium border border-slate-200">{t('Экзамены')}</span>;
+        return <span className="ar-badge">{t('Экзамены')}</span>;
       case 'documents':
-        return <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-[11px] font-medium border border-slate-200">{t('Документы')}</span>;
+        return <span className="ar-badge">{t('Документы')}</span>;
       case 'essay':
-        return <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-[11px] font-medium border border-slate-200">{t('Мотивация')}</span>;
+        return <span className="ar-badge">{t('Мотивация')}</span>;
       case 'deadlines':
-        return <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-[11px] font-medium border border-slate-200">{t('Дедлайн')}</span>;
+        return <span className="ar-badge">{t('Дедлайн')}</span>;
       default:
-        return <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-[11px] font-medium border border-slate-200">{t('Активность')}</span>;
+        return <span className="ar-badge">{t('Активность')}</span>;
     }
   };
 
   return (
-    <div className="space-y-8 py-4">
-      
+    <div className={embedded ? 'space-y-6' : 'space-y-6 py-4'}>
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+      <div className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 ${embedded ? '' : 'pb-5 border-b border-[var(--line)]'}`}>
+        {!embedded && (
+        <div className="min-w-0">
+          <div className="ar-kicker mb-1">
             {t('steps.6.kicker')}
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             {t('steps.6.title')}
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
             {t('steps.6.subtitle')}
           </p>
         </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <button
+            type="button"
             onClick={onOpenEmailModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition border border-blue-200"
+            className="ar-btn ar-btn-secondary ar-btn-sm max-w-full whitespace-normal text-left"
             title={t('Отправить полную маршрутную карту на Gmail')}
           >
-            <Mail className="w-4 h-4 text-blue-600" />
+            <Mail className="w-4 h-4" />
             <span>{t('Отправить на Gmail (Google SMTP)')}</span>
           </button>
 
           <button
+            type="button"
             onClick={onExportRoadmap}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition border border-slate-200"
+            className="ar-btn ar-btn-secondary ar-btn-sm"
           >
-            <Download className="w-4 h-4 text-slate-600" />
+            <Download className="w-4 h-4" />
             <span>{t('Экспорт (.txt)')}</span>
           </button>
         </div>
       </div>
 
+      {/* Target Goal Banner (if primary target institution is set) */}
+      {(() => {
+        const primaryId = profile?.targetUniversityIds?.[0];
+        const primaryTarget = primaryId ? UNIVERSITY_DATABASE.find((u) => u.id === primaryId) : null;
+        if (!primaryTarget) return null;
+        return (
+          <div className="p-4 rounded-2xl border border-blue-100 bg-blue-50/60 dark:border-blue-500/20 dark:bg-blue-500/10 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="ar-icon-tile bg-white border border-blue-100 dark:border-blue-500/20">
+                <Target className="w-[18px] h-[18px]" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                  {t('roadmap.targetGoalNotice')}
+                </p>
+                <h4 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
+                  {primaryTarget.name} ({primaryTarget.shortName})
+                </h4>
+              </div>
+            </div>
+            <span className="ar-badge bg-white text-blue-700 border border-blue-100 dark:text-blue-200 dark:border-blue-500/20 shrink-0">
+              {primaryTarget.category === 'school' ? t('category.school') : primaryTarget.category === 'college' ? t('category.college') : t('category.university')}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* Progress Card Bar */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-slate-900">{t('Прогресс выполнения контрольных точек')}</span>
-            <p className="text-[11px] text-slate-500">{t('Завершено')} {completedCount} из {totalCount} регламентных действий</p>
+      <div className="ar-card p-5 sm:p-6 space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t('Прогресс выполнения контрольных точек')}</h3>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">{t('Завершено')} {completedCount} из {totalCount} регламентных действий</p>
           </div>
-          <div className="text-right">
-            <span className="text-lg font-bold text-slate-900 font-mono">{progressPercent}%</span>
-          </div>
+          <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white leading-none shrink-0">{progressPercent}%</span>
         </div>
 
-        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-          <div 
-            className="bg-slate-900 h-full rounded-full transition-all duration-300"
-            style={{ width: `${progressPercent}%` }}
-          />
+        <div className="ar-progress">
+          <span style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
 
       {/* Category Filter Pills */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 text-xs text-slate-400 mr-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-zinc-400 mr-1.5">
           <Filter className="w-3.5 h-3.5" />
           <span>{t('Фильтр этапов:')}</span>
         </div>
@@ -130,9 +164,10 @@ export const Step6Roadmap: React.FC<Step6RoadmapProps> = ({
         ].map((c) => (
           <button
             key={c.id}
+            type="button"
             onClick={() => setSelectedCategory(c.id)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition
-              ${selectedCategory === c.id ? 'bg-slate-900 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            aria-pressed={selectedCategory === c.id}
+            className="ar-chip"
           >
             {t(c.label)}
           </button>
@@ -147,64 +182,66 @@ export const Step6Roadmap: React.FC<Step6RoadmapProps> = ({
           return (
             <div
               key={step.id}
-              className={`bg-white rounded-2xl border transition-all p-6 shadow-xs space-y-4
-                ${stepCompleted ? 'border-slate-300 bg-slate-50/50' : 'border-slate-200'}`}
+              className={`ar-card p-5 sm:p-6 space-y-4 ${stepCompleted ? 'border-emerald-200 dark:border-emerald-500/25' : ''}`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0
-                    ${stepCompleted ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                    {stepCompleted ? '✓' : index + 1}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3.5 border-b border-[var(--line)]">
+                <div className="flex items-start sm:items-center gap-3 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-semibold text-xs tabular-nums shrink-0
+                    ${stepCompleted ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-200'}`}>
+                    {stepCompleted ? <Check className="w-4 h-4" /> : index + 1}
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-bold text-slate-900">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                       {tx(step.title)}
                     </h3>
                     {getCategoryBadge(step.category)}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium self-start sm:self-auto bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                <div className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-300 font-medium self-start sm:self-auto shrink-0 bg-slate-50 dark:bg-zinc-800/40 px-2.5 py-1 rounded-lg border border-[var(--line)]">
                   <Calendar className="w-3.5 h-3.5 text-slate-500" />
                   <span>{tx(step.targetDate)}</span>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">
                 {tx(step.description)}
               </p>
 
               {step.guidanceTip && (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2">
-                  <Lightbulb className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
-                  <span className="leading-snug">{tx(step.guidanceTip)}</span>
+                <div className="p-3.5 rounded-xl border border-blue-100 bg-blue-50/60 dark:border-blue-500/20 dark:bg-blue-500/10 text-sm text-slate-700 dark:text-zinc-300 flex items-start gap-2.5">
+                  <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-300 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{tx(step.guidanceTip)}</span>
                 </div>
               )}
 
               {/* Actionable Subtasks */}
-              <div className="pt-2 space-y-2">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+              <div className="pt-1 space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-zinc-400 block">
                   {t('Контрольные задачи:')}
                 </span>
                 <div className="space-y-1.5">
                   {step.subtasks.map((task) => (
-                    <div
+                    <button
                       key={task.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={task.isCompleted}
                       onClick={() => onToggleSubtask(step.id, task.id)}
-                      className={`p-3 rounded-xl border transition-all duration-200 flex items-center gap-3 cursor-pointer select-none hover:-translate-y-0.5
-                        ${task.isCompleted 
-                          ? 'bg-slate-50 border-slate-200 text-slate-500 line-through opacity-70 hover:opacity-100' 
-                          : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300 hover:shadow-sm'}`}
+                      className={`w-full text-left min-h-11 px-3 py-2.5 rounded-xl border transition flex items-center gap-3
+                        ${task.isCompleted
+                          ? 'bg-slate-50 dark:bg-zinc-800/40 border-[var(--line)] text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+                          : 'bg-white dark:bg-zinc-900 border-[var(--line)] text-slate-800 dark:text-zinc-200 hover:border-[var(--line-strong)] hover:bg-slate-50 dark:hover:bg-zinc-800/50'}`}
                     >
                       {task.isCompleted ? (
-                        <CheckCircle2 className="w-4 h-4 text-slate-800 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                       ) : (
                         <Circle className="w-4 h-4 text-slate-400 shrink-0" />
                       )}
-                      <span className="text-xs font-medium leading-tight">
+                      <span className={`text-sm leading-snug ${task.isCompleted ? 'line-through' : ''}`}>
                         {tx(task.title)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -215,11 +252,12 @@ export const Step6Roadmap: React.FC<Step6RoadmapProps> = ({
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-6 border-t border-slate-200">
+      {!embedded && (
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-5 border-t border-[var(--line)]">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition"
+          className="ar-btn ar-btn-secondary w-full sm:w-auto"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>{t('steps.6.back')}</span>
@@ -228,12 +266,13 @@ export const Step6Roadmap: React.FC<Step6RoadmapProps> = ({
         <button
           type="button"
           onClick={onNext}
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-semibold hover:bg-slate-800 transition"
+          className="ar-btn ar-btn-primary w-full sm:w-auto"
         >
           <span>{t('steps.6.next')}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
+      )}
 
     </div>
   );
