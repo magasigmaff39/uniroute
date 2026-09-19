@@ -133,7 +133,7 @@ export function runDiagnostic(profile: ApplicantProfile): DiagnosticResult {
   if (!profile.hasSat && (profile.targetRegions.includes('usa_canada') || profile.targetRegions.includes('asia'))) {
     bottlenecks.push({
       title: 'Отсутствие стандартизированного теста SAT',
-      desc: 'Для подачи в топ-вузы США, KAIST и получения 100% гранта в Гонконге необходим сертификат SAT с высоким баллом.',
+      desc: 'Для топ-вузов США, KAIST и полных грантов в Гонконге высокий балл SAT обычно требуется или заметно усиливает заявку.',
       severity: 'high',
       action: 'Зарегистрироваться на ближайшую сессию Digital SAT и составить 8-недельный план подготовки.'
     });
@@ -334,7 +334,7 @@ export function matchUniversities(profile: ApplicantProfile): University[] {
     } else if (uni.id === 'aitu') {
       customWhyItFits = `Сильный вариант для направления ${profile.targetMajors.includes('cs_ai') ? 'Computer Science & AI' : 'Software Engineering'}. ${profile.hasUnt ? `Ваш балл ЕНТ (${userUnt}) участвует в конкурсе на госгрант МНВО РК${uni.minUnt ? ` (ориентир ${uni.minUnt}+)` : ''}.` : 'Можно претендовать на государственный грант по профилю Математика + Информатика — для этого нужен ЕНТ.'} Кампус расположен в Astana Hub, рядом с IT-компаниями.`;
     } else if (uni.id === 'kaist') {
-      customWhyItFits = `Как сильному STEM-кандидату ${profile.olympiadLevel !== 'none' ? 'с подтвержденным олимпиадным опытом' : 'с фокусом на технологии'}, KAIST предлагает обучение в топ-1 технологическом институте Азии со 100% стипендией KISS и ежемесячным пособием.`;
+      customWhyItFits = `Как сильному STEM-кандидату ${profile.olympiadLevel !== 'none' ? 'с подтвержденным олимпиадным опытом' : 'с фокусом на технологии'}, KAIST — один из ведущих технологических институтов Азии; стипендия KISS покрывает обучение и включает ежемесячное пособие.`;
     } else if (uni.id === 'constructor') {
       customWhyItFits = `Качественное немецкое образование на 100% английском языке. ${gpaNote} Программа отложенной оплаты JU Study Plan позволяет начать учёбу без полной оплаты вперёд.`;
     } else if (uni.id === 'bocconi') {
@@ -423,8 +423,8 @@ export function generateRoadmap(profile: ApplicantProfile, matchedUnis: Universi
           : 'Сдача вступительного тестирования по математике и логике.',
         isKeyMilestone: true,
         guidanceTip: primaryTarget?.id === 'nis'
-          ? 'Решайте сборники заданий НИШ прошлых лет на пространственное мышление и задачи на скорость/логику — на них срезаются до 40% абитуриентов.'
-          : 'Высокие результаты в олимпиадах Дарын или Жаутыковской олимпиаде дают преимущественное право на зачисление.',
+          ? 'Решайте сборники заданий НИШ прошлых лет на пространственное мышление и задачи на скорость и логику.'
+          : 'Высокие результаты в олимпиадах Дарын или Жаутыковской олимпиаде усиливают заявку при зачислении.',
         templateAvailable: true,
         subtasks: [
           {
@@ -585,7 +585,7 @@ export function generateRoadmap(profile: ApplicantProfile, matchedUnis: Universi
         ? `Требования ${primaryTarget.shortName}: IELTS от ${primaryTarget.minIelts || '—'}, SAT от ${primaryTarget.minSat || '—'}, ЕНТ от ${primaryTarget.minUnt || '—'}.`
         : 'Закрытие главного формального барьера для участия во всех стипендиальных конкурсах.',
       isKeyMilestone: true,
-      guidanceTip: 'Сдача IELTS на 7.0+ и SAT на 1420+ автоматически переводит ваши заявки из очереди рассмотрения в приоритетный пул.',
+      guidanceTip: 'IELTS 7.0+ и SAT 1420+ заметно повышают оценку шанса в вузах с такими порогами.',
       templateAvailable: true,
       subtasks: [
         { id: 'ex-1', title: profile.hasIelts ? `Подтвердить отправку официального TRF IELTS (${profile.ieltsScore}) в целевые университеты` : 'Зарегистрироваться на тест IELTS Academic и пройти 4 полных пробных теста (Mock)', isCompleted: profile.hasIelts },
