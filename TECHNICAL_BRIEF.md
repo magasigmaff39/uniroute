@@ -590,7 +590,7 @@ npm run dev                 # frontend http://localhost:5173 + backend http://12
 ├── public/                # иконки и бренд
 ├── firebase.json  firestore.rules  firestore.indexes.json  vercel.json
 ├── .env.example  package.json  vite.config.ts  tsconfig*.json
-├── docs/                  # презентация и техническая справка в PDF
+├── docs/                  # презентация (PDF и слайды в presentation.md), справка в PDF
 └── README.md  TECHNICAL_BRIEF.md  DESIGN.md
 ```
 

@@ -8,9 +8,9 @@
 | **Команда** | **DoStar** · капитан — Мағжан |
 | **Live Demo** | https://university-route-741a.web.app |
 | **Репозиторий** | https://github.com/magasigmaff39/uniroute |
-| **Презентация** | [docs/UniRoute_LOCUS_2026_Case02.pdf](docs/UniRoute_LOCUS_2026_Case02.pdf) |
+| **Презентация** | [Слайды на GitHub](docs/presentation.md) · [скачать PDF](https://github.com/magasigmaff39/uniroute/raw/main/docs/UniRoute_LOCUS_2026_Case02.pdf) |
 | **Демо-видео** | `[INSERT: ссылка на демо-видео]` |
-| **Техническая справка** | [TECHNICAL_BRIEF.md](TECHNICAL_BRIEF.md) · PDF: [docs/UniRoute_Technical_Brief.pdf](docs/UniRoute_Technical_Brief.pdf) |
+| **Техническая справка** | [TECHNICAL_BRIEF.md](TECHNICAL_BRIEF.md) (открывается на GitHub) · [скачать PDF](https://github.com/magasigmaff39/uniroute/raw/main/docs/UniRoute_Technical_Brief.pdf) |
 | **Тестовый аккаунт** | Логин и пароль переданы в форме сабмита (секреты не хранятся в репозитории). Также открыта регистрация по e-mail без подтверждения кодом и вход через Google, см. [§18](#18-локальный-запуск) |
 
 > Рабочее название проекта было **AdmitRoute**. Оно осталось во внутренних идентификаторах: npm-пакет `admit-route`, ключи `localStorage` `admitroute_*`, файл БД `admitroute.sqlite`. Публичное название продукта — **UniRoute**.
@@ -524,7 +524,7 @@ npm run deploy          # hosting + functions + firestore rules
 ├── api/index.js              # точка входа для Vercel (альтернативный деплой)
 ├── public/                   # иконки, бренд
 ├── firebase.json  firestore.rules  firestore.indexes.json  vercel.json
-├── docs/                     # презентация и техническая справка в PDF
+├── docs/                     # презентация (PDF и слайды в presentation.md), техническая справка в PDF
 ├── .env.example  package.json  vite.config.ts  tsconfig*.json
 └── README.md  TECHNICAL_BRIEF.md  DESIGN.md
 ```
